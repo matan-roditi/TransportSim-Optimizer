@@ -1,0 +1,33 @@
+# --- Environment Variables ---
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# --- Simulation Logs & Data ---
+logs/*.log
+data/*.db
+data/*.sqlite
+
+# --- Testing & Coverage ---
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Static Analysis ---
+.ruff_cache/
+.mypy_cache/
+
+# --- IDEs ---
+.vscode/
+.idea/
+
+# --- OS specific ---
+.DS_Store
+Thumbs.db

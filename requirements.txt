@@ -1,0 +1,10 @@
+# --- DataBase and GeoSpatial ---
+psycopg2-binary
+SQLAlchemy
+GeoAlchemy2
+geopandas
+shapely
+
+# --- External APIs ---
+googlemaps 
+python-dotenv

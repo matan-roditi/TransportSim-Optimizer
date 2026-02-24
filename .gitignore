@@ -10,6 +10,11 @@ env/
 venv/
 ENV/
 
+# --- Generated transport simulation data ---
+src/database/*.csv
+src/database/*.sqlite
+src/database/*.db
+
 # --- Simulation Logs & Data ---
 logs/*.log
 data/*.db

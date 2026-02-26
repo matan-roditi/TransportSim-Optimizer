@@ -9,6 +9,7 @@ __pycache__/
 env/
 venv/
 ENV/
+stops.txt
 
 # --- Generated transport simulation data ---
 src/database/*.csv

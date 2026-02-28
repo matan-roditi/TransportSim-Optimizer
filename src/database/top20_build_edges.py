@@ -10,7 +10,7 @@ from psycopg2.extras import execute_values
 BASE_DIR = Path(__file__).resolve().parent
 IN_FILE = BASE_DIR / "herzliya_top20_selected.csv"
 
-# Update if you changed password/user/db
+# PostgreSQL connection parameters
 PG_HOST = "localhost"
 PG_PORT = 5432
 PG_DB = "transportsim"
@@ -74,7 +74,7 @@ def main() -> None:
                     page_size=200,
                 )
 
-                # Build kNN edges (in-memory, N=20 so it's fast)
+                # Build kNN edges
                 edges = []
                 for _, s in df.iterrows():
                     distances = []

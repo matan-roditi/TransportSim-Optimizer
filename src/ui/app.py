@@ -26,31 +26,75 @@ def get_bus_stops():
 
 def main():
     st.set_page_config(page_title="Herzliya Map", layout="wide")
+
+    # Initialize the list of bus lines in session state if not already there
+    if 'bus_lines' not in st.session_state:
+        st.session_state.bus_lines = []
+    
+    # Track which line is currently "active" for adding stations
+    if 'active_line_index' not in st.session_state:
+        st.session_state.active_line_index = None
+
     st.title("Herzliya Road Network")
 
-    # Initialize the map centered on Herzliya center
-    # Coordinates for Herzliya (approx 32.166, 34.825)
-    m = folium.Map(location=[32.1663, 34.825], zoom_start=14)
+    # Split layout into a map and a control panel
+    col_map, col_ctrl = st.columns([3, 1])
 
-    # Fetch data
-    df = get_bus_stops()
+    with col_ctrl:
+        st.header("Bus Lines")
+        
+        if st.button("Add a bus line"):
+            line_id = len(st.session_state.bus_lines) + 1
+            st.session_state.bus_lines.append({
+                "name": f"Line {line_id}",
+                "stops": []
+            })
 
-    # Add yellow pinpoints (CircleMarkers) for each stop
-    for _, stop in df.iterrows():
-        folium.CircleMarker(
-            location=[stop['lat'], stop['lon']],
-            radius=7,
-            popup=stop['name'],
-            tooltip=stop['name'],
-            color="black",        # Outline
-            weight=1,
-            fill=True,
-            fill_color="yellow",  # yellow pinpoint
-            fill_opacity=0.9
-        ).add_to(m)
+        # Display each line and its buttons
+        for i, line in enumerate(st.session_state.bus_lines):
+            st.markdown(f"### 🚌 {line['name']}")
+            
+            # Button to toggle "Adding Mode" for this specific line
+            if st.button(f"Add station to {line['name']}", key=f"btn_{i}"):
+                st.session_state.active_line_index = i
+                st.info(f"Click a yellow pinpoint on the map to add it to {line['name']}")
 
-    # Display the map in the Streamlit app
-    st_folium(m, width=1000, height=600)
+            # List the stations already added to this line
+            for stop in line["stops"]:
+                st.write(f"📍 {stop}")
+            st.divider()
+
+    with col_map:
+        m = folium.Map(location=[32.1663, 34.825], zoom_start=14)
+        df = get_bus_stops()
+
+        for _, stop in df.iterrows():
+            folium.CircleMarker(
+                location=[stop['lat'], stop['lon']],
+                radius=7,
+                popup=stop['name'],
+                tooltip=stop['name'], # This is what we capture on click
+                color="black",
+                fill=True,
+                fill_color="yellow",
+                fill_opacity=0.9
+            ).add_to(m)
+
+        # Capture map interaction data
+        map_data = st_folium(m, width=900, height=600, key="herzliya_map")
+
+        # Logic: If a pinpoint was clicked AND we are in 'Adding Mode'
+        clicked_stop = map_data.get("last_object_clicked_tooltip")
+        
+        if clicked_stop and st.session_state.active_line_index is not None:
+            line_idx = st.session_state.active_line_index
+            
+            # Add the stop if it's not already in the line
+            if clicked_stop not in st.session_state.bus_lines[line_idx]["stops"]:
+                st.session_state.bus_lines[line_idx]["stops"].append(clicked_stop)
+                # Reset active index so we don't accidentally keep adding the same stop
+                st.session_state.active_line_index = None 
+                st.rerun() # Refresh UI to show the new stop name immediately
 
 if __name__ == "__main__":
     main()

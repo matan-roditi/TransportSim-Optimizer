@@ -29,7 +29,12 @@ def main():
 
     # Initialize the list of bus lines in session state if not already there
     if 'bus_lines' not in st.session_state:
-        st.session_state.bus_lines = []
+        st.session_state.bus_lines = [
+            {"name": "Line 1", "stops": []},
+            {"name": "Line 2", "stops": []},
+            {"name": "Line 3", "stops": []},
+            {"name": "Line 4", "stops": []}
+        ]
     
     # Track which line is currently "active" for adding stations
     if 'active_line_index' not in st.session_state:
@@ -43,25 +48,23 @@ def main():
     with col_ctrl:
         st.header("Bus Lines")
         
-        if st.button("Add a bus line"):
-            line_id = len(st.session_state.bus_lines) + 1
-            st.session_state.bus_lines.append({
-                "name": f"Line {line_id}",
-                "stops": []
-            })
-
         # Display each line and its buttons
         for i, line in enumerate(st.session_state.bus_lines):
-            st.markdown(f"### 🚌 {line['name']}")
-            
-            # Button to toggle "Adding Mode" for this specific line
-            if st.button(f"Add station to {line['name']}", key=f"btn_{i}"):
-                st.session_state.active_line_index = i
-                st.info(f"Click a yellow pinpoint on the map to add it to {line['name']}")
+            # Button to toggle the view of this line
+            if st.button(f"🚌 {line['name']}", key=f"btn_{i}"):
+                if st.session_state.active_line_index == i:
+                    st.session_state.active_line_index = None
+                else:
+                    st.session_state.active_line_index = i
+                st.rerun()
 
-            # List the stations already added to this line
-            for stop in line["stops"]:
-                st.write(f"📍 {stop}")
+            # Only show stations and editing mode if this line is active
+            if st.session_state.active_line_index == i:
+                st.info(f"Click a yellow pinpoint on the map to add it to {line['name']}")
+                st.write("**Current Stations:**")
+                for stop in line["stops"]:
+                    st.write(f"📍 {stop}")
+                
             st.divider()
 
     with col_map:
@@ -73,7 +76,7 @@ def main():
                 location=[stop['lat'], stop['lon']],
                 radius=7,
                 popup=stop['name'],
-                tooltip=stop['name'], # This is what we capture on click
+                tooltip=stop['name'], # Tooltip for click detection
                 color="black",
                 fill=True,
                 fill_color="yellow",
@@ -83,18 +86,23 @@ def main():
         # Capture map interaction data
         map_data = st_folium(m, width=900, height=600, key="herzliya_map")
 
+        if 'last_processed_click' not in st.session_state:
+            st.session_state.last_processed_click = None
+
         # Logic: If a pinpoint was clicked AND we are in 'Adding Mode'
         clicked_stop = map_data.get("last_object_clicked_tooltip")
         
-        if clicked_stop and st.session_state.active_line_index is not None:
-            line_idx = st.session_state.active_line_index
-            
-            # Add the stop if it's not already in the line
-            if clicked_stop not in st.session_state.bus_lines[line_idx]["stops"]:
-                st.session_state.bus_lines[line_idx]["stops"].append(clicked_stop)
-                # Reset active index so we don't accidentally keep adding the same stop
-                st.session_state.active_line_index = None 
-                st.rerun() # Refresh UI to show the new stop name immediately
+        # Check if we have already processed this exact click event
+        if clicked_stop and clicked_stop != st.session_state.last_processed_click:
+            st.session_state.last_processed_click = clicked_stop
+
+            if st.session_state.active_line_index is not None:
+                line_idx = st.session_state.active_line_index
+                
+                # Add the stop if it's not already in the line
+                if clicked_stop not in st.session_state.bus_lines[line_idx]["stops"]:
+                    st.session_state.bus_lines[line_idx]["stops"].append(clicked_stop)
+                    st.rerun() # Refresh UI to show the new stop name immediately
 
 if __name__ == "__main__":
     main()

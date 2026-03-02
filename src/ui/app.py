@@ -35,9 +35,41 @@ def load_saved_lines():
         {"name": "Line 4", "stops": []}
     ]
 
+
 def save_lines(lines_data):
     with open("bus_lines_save.json", "w", encoding="utf-8") as f:
         json.dump(lines_data, f, ensure_ascii=False, indent=4)
+
+
+def get_edge_travel_time(stop_name_a, stop_name_b):
+    """Fetches travel time (seconds) between two station names from the DB."""
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv("PG_HOST"),
+            port=os.getenv("PG_PORT"),
+            database=os.getenv("PG_DB"),
+            user=os.getenv("PG_USER"),
+            password=os.getenv("PG_PASSWORD")
+        )
+        # We join edges and travel_times to find the specific 'cost' for this segment
+        query = """
+            SELECT tt.seconds 
+            FROM edges e
+            JOIN stops s1 ON e.from_stop_id = s1.stop_id
+            JOIN stops s2 ON e.to_stop_id = s2.stop_id
+            JOIN travel_times tt ON e.id = tt.edge_id
+            WHERE s1.name = %s AND s2.name = %s
+            LIMIT 1;
+        """
+        with conn.cursor() as cur:
+            cur.execute(query, (stop_name_a, stop_name_b))
+            result = cur.fetchone()
+        conn.close()
+        return result[0] if result else None
+    except Exception as e:
+        st.error(f"Error fetching travel time: {e}")
+        return None
+    
 
 def main():
     st.set_page_config(page_title="Herzliya Map", layout="wide")
@@ -116,7 +148,8 @@ def main():
                 # Add the stop if it's not already in the line
                 if clicked_stop not in st.session_state.bus_lines[line_idx]["stops"]:
                     st.session_state.bus_lines[line_idx]["stops"].append(clicked_stop)
-                    st.rerun() # Refresh UI to show the new stop name immediately
+                    st.rerun()   #Refresh UI to show the new stop name immediately
+
 
 if __name__ == "__main__":
     main()

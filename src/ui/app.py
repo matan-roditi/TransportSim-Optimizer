@@ -4,6 +4,7 @@ from streamlit_folium import st_folium
 import pandas as pd
 import psycopg2
 import os
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,18 +24,27 @@ def get_bus_stops():
     conn.close()
     return df
 
+def load_saved_lines():
+    if os.path.exists("bus_lines_save.json"):
+        with open("bus_lines_save.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    return [
+        {"name": "Line 1", "stops": []},
+        {"name": "Line 2", "stops": []},
+        {"name": "Line 3", "stops": []},
+        {"name": "Line 4", "stops": []}
+    ]
+
+def save_lines(lines_data):
+    with open("bus_lines_save.json", "w", encoding="utf-8") as f:
+        json.dump(lines_data, f, ensure_ascii=False, indent=4)
 
 def main():
     st.set_page_config(page_title="Herzliya Map", layout="wide")
 
     # Initialize the list of bus lines in session state if not already there
     if 'bus_lines' not in st.session_state:
-        st.session_state.bus_lines = [
-            {"name": "Line 1", "stops": []},
-            {"name": "Line 2", "stops": []},
-            {"name": "Line 3", "stops": []},
-            {"name": "Line 4", "stops": []}
-        ]
+        st.session_state.bus_lines = load_saved_lines()
     
     # Track which line is currently "active" for adding stations
     if 'active_line_index' not in st.session_state:
@@ -65,6 +75,10 @@ def main():
                 for stop in line["stops"]:
                     st.write(f"📍 {stop}")
                 
+                if st.button("Save", key=f"save_{i}", type="primary"):
+                    save_lines(st.session_state.bus_lines)
+                    st.success("Bus lines saved successfully!")
+                
             st.divider()
 
     with col_map:
@@ -76,7 +90,7 @@ def main():
                 location=[stop['lat'], stop['lon']],
                 radius=7,
                 popup=stop['name'],
-                tooltip=stop['name'], # Tooltip for click detection
+                tooltip=stop['name'], 
                 color="black",
                 fill=True,
                 fill_color="yellow",

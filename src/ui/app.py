@@ -24,6 +24,7 @@ def get_bus_stops():
     conn.close()
     return df
 
+
 def load_saved_lines():
     if os.path.exists("bus_lines_save.json"):
         with open("bus_lines_save.json", "r", encoding="utf-8") as f:
@@ -57,7 +58,7 @@ def get_edge_travel_time(stop_name_a, stop_name_b):
             FROM edges e
             JOIN stops s1 ON e.from_stop_id = s1.stop_id
             JOIN stops s2 ON e.to_stop_id = s2.stop_id
-            JOIN travel_times tt ON e.id = tt.edge_id
+            JOIN travel_times tt ON e.edge_id = tt.edge_id
             WHERE s1.name = %s AND s2.name = %s
             LIMIT 1;
         """
@@ -89,28 +90,61 @@ def main():
 
     with col_ctrl:
         st.header("Bus Lines")
-        
-        # Display each line and its buttons
-        for i, line in enumerate(st.session_state.bus_lines):
-            # Button to toggle the view of this line
-            if st.button(f"🚌 {line['name']}", key=f"btn_{i}"):
-                if st.session_state.active_line_index == i:
-                    st.session_state.active_line_index = None
-                else:
-                    st.session_state.active_line_index = i
-                st.rerun()
 
-            # Only show stations and editing mode if this line is active
-            if st.session_state.active_line_index == i:
-                st.info(f"Click a yellow pinpoint on the map to add it to {line['name']}")
-                st.write("**Current Stations:**")
-                for stop in line["stops"]:
-                    st.write(f"📍 {stop}")
+        # Display the line buttons in a single row
+        button_cols = st.columns(len(st.session_state.bus_lines))
+        for i, line in enumerate(st.session_state.bus_lines):
+            with button_cols[i]:
+                # Button to toggle the view of this line
+                if st.button(f"{line['name']}", key=f"btn_{i}"):
+                    if st.session_state.active_line_index == i:
+                        st.session_state.active_line_index = None
+                    else:
+                        st.session_state.active_line_index = i
+                    st.rerun()  # Refresh UI to show/hide stops immediately
+                    
+        st.divider()
+
+        # Only show the details (stations, etc.) for the currently active line
+        if st.session_state.active_line_index is not None:
+            i = st.session_state.active_line_index
+            line = st.session_state.bus_lines[i]
+            
+            st.markdown(f"### 🚌 {line['name']}")
+            st.write("**Current Stations:**")
+            
+            num_stops = len(line["stops"])
+            for idx, stop_name in enumerate(line["stops"]):
+                # Split the row into two columns for the name and the delete button
+                name_col, del_col = st.columns([4, 1])
                 
-                if st.button("Save", key=f"save_{i}", type="primary"):
-                    save_lines(st.session_state.bus_lines)
-                    st.success("Bus lines saved successfully!")
+                with name_col:
+                    st.write(f"📍 {stop_name}")
                 
+                with del_col:
+                    if st.button("X", key=f"del_{i}_{idx}"):
+                        line["stops"].pop(idx)
+                        st.rerun()  # Refresh UI to reflect deletion immediately
+                        
+                # If there is a next stop, show the travel time between current and next
+                if idx < num_stops - 1:
+                    next_stop = line["stops"][idx + 1]
+                    travel_sec = get_edge_travel_time(stop_name, next_stop)
+                    
+                    if travel_sec is not None:
+                        # Convert seconds to minutes for readability
+                        minutes = travel_sec // 60
+                        seconds = travel_sec % 60
+                        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp; *Travel Time: {minutes}m {seconds}s*")
+                    else:
+                        st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp; *No direct edge found in DB*")
+
+            st.info(f"Click a yellow pinpoint on the map to add it to {line['name']}")
+            
+            if st.button("Save", key=f"save_{i}", type="primary"):
+                save_lines(st.session_state.bus_lines)
+                st.success("Bus lines saved successfully!")
+
             st.divider()
 
     with col_map:

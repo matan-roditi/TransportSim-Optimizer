@@ -37,3 +37,40 @@ def test_extra_passenger_penalty():
     bus = BusAgent(bus_id="Line_1")
     duration = bus.calculate_stop_duration(boarding_count=10)
     assert duration == 60
+
+def test_stop_for_exiting_passengers_only():
+    # Verify the bus stops for 30s if someone is getting off, 
+    # even if 0 people are boarding.
+    bus = BusAgent(bus_id="Line_1")
+    
+    # boarding_count=0, exiting_count=1
+    duration = bus.calculate_stop_duration(boarding_count=0, exiting_count=1)
+    assert duration == 30
+
+def test_no_stop_if_empty_and_no_boarders():
+    # If no one is on the bus to exit and no one is at the stop to board,
+    # the bus should ideally spend 0 seconds at the stop.
+    bus = BusAgent(bus_id="Line_1")
+    
+    duration = bus.calculate_stop_duration(boarding_count=0, exiting_count=0)
+    assert duration == 0
+
+def test_extra_passenger_penalty_with_exiting():
+    # Verify that 7 boarding passengers and 5 exiting passengers still results in a 45-second stop
+    bus = BusAgent(bus_id="Line_1")
+    duration = bus.calculate_stop_duration(boarding_count=7, exiting_count=5)
+    assert duration == 45
+
+def test_max_time_boarding_vs_exiting():
+    # Scenario: 10 passengers boarding (60s) and 5 passengers exiting (35s)
+    # The bus should take the maximum of the two: 60s
+    bus = BusAgent(bus_id="Line_1")
+    duration = bus.calculate_stop_duration(boarding_count=10, exiting_count=5)
+    assert duration == 60
+
+def test_max_time_exiting_heavy():
+    # Scenario: 4 passengers boarding (30s) and 10 passengers exiting (60s)
+    # The bus should take the maximum: 60s
+    bus = BusAgent(bus_id="Line_1")
+    duration = bus.calculate_stop_duration(boarding_count=4, exiting_count=10)
+    assert duration == 60

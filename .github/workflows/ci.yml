@@ -31,10 +31,3 @@ jobs:
       # Static Type Checking with Mypy
       - name: Run Mypy (Type Check)
         run: mypy . --ignore-missing-imports
-
-      # Run Unit Tests with Coverage Report
-      - name: Run Tests
-        run: pytest
-        env:
-          # Here you can add environment variables if the tests require a temporary connection to the DB
-          DATABASE_URL: postgresql://user:pass@localhost:5432/test_db

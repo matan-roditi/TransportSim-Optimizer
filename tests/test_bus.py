@@ -28,14 +28,14 @@ def test_bus_boarding_limit_passenger_list():
 def test_base_dwell_time():
     # Verify the bus stops for exactly 30 seconds even with 1 passenger
     bus = BusAgent(bus_id="Line_1")
-    duration = bus.calculate_stop_duration(boarding_count=1)
+    duration = bus.calculate_stop_duration(boarding_count=1, exiting_count=0)
     assert duration == 30
 
 def test_extra_passenger_penalty():
     # Verify that 10 passengers cause a 60-second delay
     # 30s base + (6 extra passengers * 5s) = 60s
     bus = BusAgent(bus_id="Line_1")
-    duration = bus.calculate_stop_duration(boarding_count=10)
+    duration = bus.calculate_stop_duration(boarding_count=10, exiting_count=0)
     assert duration == 60
 
 def test_stop_for_exiting_passengers_only():

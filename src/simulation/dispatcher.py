@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 class Dispatcher:
     """
     Manages bus dispatch scheduling based on time period.
-    
     Dispatch frequencies:
     - Peak 1 (06:00-10:00): Every 15 minutes
     - Off-peak (10:00-16:00): Every 30 minutes
@@ -23,12 +22,6 @@ class Dispatcher:
     def should_dispatch(self, current_time: time) -> bool:
         """
         Determine if a bus should be dispatched at the given time.
-        
-        Args:
-            current_time: The current time as a datetime.time object
-            
-        Returns:
-            True if a bus should be dispatched at this time, False otherwise
         """
         hour = current_time.hour
         minute = current_time.minute

@@ -51,3 +51,11 @@ class SimulationOrchestrator:
         new_passenger = self.passenger_generator.generate_passenger()
         self.active_passengers.append(new_passenger)
         logger.info(f"Generated new passenger at ({new_passenger.lat}, {new_passenger.lon}) with destination {new_passenger.destination}")
+
+
+    def is_running(self) -> bool:
+        """
+        Checks if the simulation is still within its operational hours (06:00-22:00).
+        """
+        # The simulation day ends exactly at 22:00
+        return self.clock.current_time < time(22, 0)

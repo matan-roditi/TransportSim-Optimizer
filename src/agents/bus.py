@@ -15,14 +15,23 @@ class BusAgent:
     Manages passenger boarding up to a fixed capacity.
     """
 
-    def __init__(self, bus_id: str, capacity: int = 50) -> None:
+    def __init__(self, bus_id: str, route_data: Dict, capacity: int = 50) -> None:
         # Unique identifier for the bus
         self.bus_id = bus_id
         # Maximum passenger capacity
         self.capacity = capacity
         # We now specify that this list will only hold PassengerAgent objects
         self.passengers: List[PassengerAgent] = []
-        logger.info(f"Bus {bus_id} created with capacity {capacity}")
+        # Initialize the route navigator with the provided route data
+        self.navigator = RouteNavigator(
+            line_id=route_data["line_id"],
+            stops=route_data["stops"]
+        )
+        # state variables to manage movement
+        self.is_moving: bool = False
+        self.ticks_until_arrival: int = 0
+
+        logger.info(f"Bus {bus_id} created for Line {self.navigator.line_id}")
 
     def board_passengers(self, potential_passengers: List[PassengerAgent]) -> int:
         """

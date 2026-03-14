@@ -41,7 +41,12 @@ class SimulationOrchestrator:
         # Check with the dispatcher if a new bus should start its route
         if self.dispatcher.should_dispatch(current_time):
             bus_id = f"Bus_{current_time.strftime('%H%M')}"
-            new_bus = BusAgent(bus_id=bus_id)
+            # Create default route data for the bus
+            route_data = {
+                "line_id": "MainLine",
+                "stops": ["Central", "North", "South", "East", "West"]
+            }
+            new_bus = BusAgent(bus_id=bus_id, route_data=route_data)
             self.active_buses.append(new_bus)
             logger.info(f"Deployed new bus: {bus_id}")
 

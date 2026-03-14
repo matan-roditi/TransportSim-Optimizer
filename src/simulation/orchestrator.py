@@ -19,7 +19,7 @@ class SimulationOrchestrator:
 
     def __init__(self, neighborhoods: Dict[str, Any]) -> None:
         # Initialize the simulation clock (starts at 06:00)
-        self.clock = SimulationClock()
+        self.clock = SimulationClock("06:00", "22:00")
         # Initialize the frequency manager
         self.dispatcher = Dispatcher()
         # Initialize the person factory for Herzliya

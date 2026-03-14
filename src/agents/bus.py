@@ -1,6 +1,6 @@
 from __future__ import annotations
 import logging
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Optional
 
 # We use TYPE_CHECKING to avoid circular imports during runtime
 if TYPE_CHECKING:
@@ -63,3 +63,31 @@ class BusAgent:
         )
         
         return total_duration
+
+
+class RouteNavigator:
+    """
+    Handles the sequence of stops for a specific bus line.
+    Calculates the next destination based on the current stop.
+    """
+    def __init__(self, line_id: str, stops: List[str]):
+        self.line_id = line_id
+        self.stops = stops
+        self.current_index = 0
+        logger.debug(f"Navigator initialized for Line {line_id} with {len(stops)} stops")
+
+    def get_current_stop(self) -> str:
+        return self.stops[self.current_index]
+
+    def get_next_stop(self) -> Optional[str]:
+        if self.current_index + 1 < len(self.stops):
+            return self.stops[self.current_index + 1]
+        return None # End of the line
+
+    def advance(self):
+        """Moves the internal pointer to the next stop"""
+        if self.current_index + 1 < len(self.stops):
+            self.current_index += 1
+            logger.info(f"Line {self.line_id}: Advancing to stop {self.get_current_stop()}")
+        else:
+            logger.warning(f"Line {self.line_id}: Reached the final stop")

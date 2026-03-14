@@ -1,6 +1,6 @@
 from __future__ import annotations
 import logging
-from typing import List, TYPE_CHECKING, Optional
+from typing import List, TYPE_CHECKING, Optional, Dict
 
 # We use TYPE_CHECKING to avoid circular imports during runtime
 if TYPE_CHECKING:
@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
 # Setup logging for the bus agent
 logger = logging.getLogger(__name__)
+
 
 class BusAgent:
     """

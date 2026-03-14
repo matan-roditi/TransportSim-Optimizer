@@ -36,21 +36,22 @@ class SimulationOrchestrator:
         Advances the simulation by one tick (1 minute).
         Handles bus dispatching and passenger generation based on the current time.
         """
-        # 1. Advance the clock
-        self.clock.tick()
         current_time = self.clock.current_time
-        
-        # 2. Check with the dispatcher if a new bus should start its route
+
+        # Check with the dispatcher if a new bus should start its route
         if self.dispatcher.should_dispatch(current_time):
             bus_id = f"Bus_{current_time.strftime('%H%M')}"
             new_bus = BusAgent(bus_id=bus_id)
             self.active_buses.append(new_bus)
             logger.info(f"Deployed new bus: {bus_id}")
 
-        # 3. Generate new passengers (Example: 1 per tick for now)
+        # Generate new passengers (Example: 1 per tick for now)
         new_passenger = self.passenger_generator.generate_passenger()
         self.active_passengers.append(new_passenger)
         logger.info(f"Generated new passenger at ({new_passenger.lat}, {new_passenger.lon}) with destination {new_passenger.destination}")
+
+        # Advance the simulation clock by 1 minute
+        self.clock.tick()
 
 
     def is_running(self) -> bool:

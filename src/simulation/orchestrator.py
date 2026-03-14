@@ -59,4 +59,4 @@ class SimulationOrchestrator:
         Checks if the simulation is still within its operational hours (06:00-22:00).
         """
         # The simulation day ends exactly at 22:00
-        return self.clock.current_time < time(22, 0)
+        return bool(self.clock.current_time < time(22, 0))

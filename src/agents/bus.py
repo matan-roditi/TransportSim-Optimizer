@@ -34,21 +34,38 @@ class BusAgent:
 
         logger.info(f"Bus {bus_id} created for Line {self.navigator.line_id}")
 
-    def board_passengers(self, potential_passengers: List[PassengerAgent]) -> int:
+    def process_boarding(self, waiting_passengers: List[PassengerAgent]) -> List[PassengerAgent]:
         """
-        Board passengers up to the bus's capacity limit.
+        Filters waiting passengers and boards them up to the capacity limit.
+        Returns the list of passengers who remain unboarded.
         """
-        # Calculate how many available seats remain
+        current_stop = self.navigator.get_current_stop()
+        passengers_left_behind = []
+        ready_to_board = []
+
+        # Filter passengers by location and route compatibility
+        for passenger in waiting_passengers:
+            is_at_correct_stop = passenger.origin_stop == current_stop
+            goes_to_target = self.navigator.reaches_stop(passenger.target_stop)
+
+            if is_at_correct_stop and goes_to_target:
+                ready_to_board.append(passenger)
+            else:
+                passengers_left_behind.append(passenger)
+
+        # Calculate available seats and board passengers
         available_seats = self.capacity - len(self.passengers)
-        
-        # Board only as many as can fit
-        passengers_to_board = potential_passengers[:available_seats]
-        self.passengers.extend(passengers_to_board)
-        
-        boarded_count = len(passengers_to_board)
-        logger.debug(f"Bus {self.bus_id}: {boarded_count} passengers boarded")
-        
-        return boarded_count
+        actually_boarding = ready_to_board[:available_seats]
+        unboarded_due_to_capacity = ready_to_board[available_seats:]
+
+        self.passengers.extend(actually_boarding)
+        passengers_left_behind.extend(unboarded_due_to_capacity)
+
+        boarded_count = len(actually_boarding)
+        if boarded_count > 0:
+            logger.info(f"Bus {self.bus_id} boarded {boarded_count} passengers at {current_stop}")
+
+        return passengers_left_behind
 
     def calculate_stop_duration(self, boarding_count: int, exiting_count: int = 0) -> int:
         """

@@ -1,5 +1,6 @@
 import pytest
 from agents.bus import BusAgent, RouteNavigator
+from agents.passenger import PassengerAgent
 
 # Test route data fixture
 TEST_ROUTE_DATA = {
@@ -102,3 +103,56 @@ def test_navigator_does_not_reach_passed_stop(mock_navigator):
 
 def test_navigator_does_not_reach_off_route_stop(mock_navigator):
     assert mock_navigator.reaches_stop("Omega") is False
+
+
+@pytest.fixture
+def bus_with_two_seats():
+    """Provides a bus with a strict capacity limit of two for boarding tests."""
+    route_data = {
+        "line_id": "Line A",
+        "stops": ["Start", "Middle", "End"]
+    }
+    return BusAgent(bus_id="TestBus", route_data=route_data, capacity=2)
+
+
+@pytest.fixture
+def waiting_crowd():
+    """Provides a group of three passengers waiting at the starting stop."""
+    p_one = PassengerAgent(lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="End")
+    p_two = PassengerAgent(lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="End")
+    p_three = PassengerAgent(lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="End")
+    return [p_one, p_two, p_three]
+
+
+def test_bus_boards_passengers_up_to_capacity(bus_with_two_seats, waiting_crowd):
+    # Testing that exactly two passengers make it onto the bus when capacity is two
+    bus_with_two_seats.process_boarding(waiting_crowd)
+    
+    assert len(bus_with_two_seats.passengers) == 2
+
+
+def test_bus_leaves_unboarded_passengers_in_queue(bus_with_two_seats, waiting_crowd):
+    # Testing that the single passenger who could not fit is returned to the waiting pool
+    remaining_passengers = bus_with_two_seats.process_boarding(waiting_crowd)
+    
+    assert len(remaining_passengers) == 1
+
+
+def test_bus_ignores_passengers_at_wrong_stop(bus_with_two_seats):
+    # Testing that a passenger waiting at a different station is skipped
+    wrong_stop_passenger = PassengerAgent(
+        lat=0, lon=0, destination=(0,0), origin_stop="Middle", target_stop="End"
+    )
+    bus_with_two_seats.process_boarding([wrong_stop_passenger])
+    
+    assert len(bus_with_two_seats.passengers) == 0
+
+
+def test_bus_ignores_passengers_with_wrong_destination(bus_with_two_seats):
+    # Testing that a passenger wanting to go to an off-route stop is rejected
+    wrong_dest_passenger = PassengerAgent(
+        lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="OffRoute"
+    )
+    bus_with_two_seats.process_boarding([wrong_dest_passenger])
+    
+    assert len(bus_with_two_seats.passengers) == 0

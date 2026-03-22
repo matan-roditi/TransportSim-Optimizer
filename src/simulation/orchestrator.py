@@ -1,7 +1,10 @@
 import logging
 import json
+import os
+import psycopg2
 from datetime import time
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
+
 
 from simulation.clock import SimulationClock
 from simulation.dispatcher import Dispatcher
@@ -27,6 +30,8 @@ class SimulationOrchestrator:
         self.passenger_generator = PassengerGenerator(neighborhoods)
         # Load all bus routes into memory once when the simulation starts
         self.routes_cache = self._load_routes("bus_lines_save.json")
+        # Load travel times between stops from the database
+        self.travel_times_cache: Dict[Tuple[str, str], int] = self._load_travel_times()
 
         # Lists to track active entities in the world
         self.active_buses: List[BusAgent] = []
@@ -52,6 +57,54 @@ class SimulationOrchestrator:
             logger.error(f"Invalid JSON format in {file_path}: {e}")
 
         return loaded_routes
+
+    def _load_travel_times(self) -> Dict[Tuple[str, str], int]:
+        """
+        Loads travel times between stops from PostgreSQL.
+        Returns a dict mapping (stop_a, stop_b) -> minutes.
+        Falls back to an empty dict if credentials are missing or DB is unavailable.
+        """
+        required = ["PG_HOST", "PG_PORT", "PG_DB", "PG_USER", "PG_PASSWORD"]
+        if not all(os.environ.get(var) for var in required):
+            logger.warning("PostgreSQL credentials not set — travel times cache will be empty")
+            return {}
+
+        if psycopg2 is None:
+            logger.error("psycopg2 is not installed — cannot load travel times")
+            return {}
+
+        travel_times: Dict[Tuple[str, str], int] = {}
+        try:
+            with psycopg2.connect(
+                host=os.environ["PG_HOST"],
+                port=os.environ["PG_PORT"],
+                dbname=os.environ["PG_DB"],
+                user=os.environ["PG_USER"],
+                password=os.environ["PG_PASSWORD"]
+            ) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT s1.stop_name, s2.stop_name, tt.seconds
+                        FROM travel_times tt
+                        JOIN edges e  ON e.edge_id    = tt.edge_id
+                        JOIN stops s1 ON s1.stop_id   = e.from_stop_id
+                        JOIN stops s2 ON s2.stop_id   = e.to_stop_id
+                        WHERE tt.time_bucket = 0
+                    """)
+                    for stop_a, stop_b, duration_seconds in cur.fetchall():
+                        travel_times[(stop_a, stop_b)] = max(1, round(duration_seconds / 60.0))
+            logger.info(f"Loaded {len(travel_times)} travel time entries from database")
+        except Exception as e:
+            logger.error(f"Failed to load travel times from database: {e}")
+
+        return travel_times
+
+    def get_travel_time_minutes(self, stop_a: str, stop_b: str, fallback: int = 2) -> int:
+        """
+        Returns the travel time in minutes between two stops.
+        Falls back to the provided default if the route is not in the cache.
+        """
+        return self.travel_times_cache.get((stop_a, stop_b), fallback)
 
     def run_tick(self) -> None:
         """

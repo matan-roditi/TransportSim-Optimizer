@@ -1,5 +1,6 @@
 import pytest
 from agents.passenger import PassengerAgent, PassengerGenerator
+from unittest.mock import MagicMock
 
 # Mock data for testing Herzliya neighborhood distribution
 TEST_NEIGHBORHOODS = {
@@ -109,3 +110,64 @@ def test_passenger_generator_assigns_non_empty_target(mock_generator):
     # Verify the generator does not produce a passenger with a blank alighting stop name
     passenger = mock_generator.generate_passenger()
     assert len(passenger.target_stop) > 0
+
+
+@pytest.fixture
+def mock_brain_generator():
+    """Provides a generator equipped with a mocked navigator for testing."""
+    dummy_neighborhoods = {
+        "Center": {
+            "weight": 1.0,
+            "bounds": {"lat": [32.1, 32.2], "lon": [34.8, 34.9]}
+        }
+    }
+
+    # Create a fake navigator that always returns a guaranteed perfect route
+    mock_navigator = MagicMock()
+    mock_navigator.find_optimal_route.return_value = ("Calculated Start", "Calculated End", 15.0)
+
+    # We will update the generator to accept these new routing dependencies
+    return PassengerGenerator(
+        neighborhoods=dummy_neighborhoods,
+        navigator=mock_navigator,
+        routes_cache={},
+        get_bus_time=lambda o, d: 5,
+        get_walk_time=lambda o, d: 5
+    )
+
+
+def test_generator_assigns_calculated_origin_stop(mock_brain_generator):
+    # Testing that the passenger origin is no longer hardcoded but comes from the navigator
+    passenger = mock_brain_generator.generate_passenger()
+
+    assert passenger.origin_stop == "Calculated Start"
+
+
+def test_generator_assigns_calculated_target_stop(mock_brain_generator):
+    # Testing that the passenger destination comes from the navigator routing logic
+    passenger = mock_brain_generator.generate_passenger()
+
+    assert passenger.target_stop == "Calculated End"
+
+
+def test_generator_syncs_passenger_destination_with_navigator_call(mock_brain_generator):
+    # Testing that the destination coordinates assigned to the agent exactly match the route search
+    passenger = mock_brain_generator.generate_passenger()
+    call_kwargs = mock_brain_generator.navigator.find_optimal_route.call_args.kwargs
+
+    assert call_kwargs.get("dest_coords") == passenger.destination
+
+
+def test_generator_syncs_passenger_origin_with_navigator_call(mock_brain_generator):
+    # Testing that the origin coordinates assigned to the agent exactly match the route search
+    passenger = mock_brain_generator.generate_passenger()
+    call_kwargs = mock_brain_generator.navigator.find_optimal_route.call_args.kwargs
+
+    assert call_kwargs.get("origin_coords") == (passenger.lat, passenger.lon)
+
+
+def test_generator_calls_navigator_exactly_once_per_passenger(mock_brain_generator):
+    # Testing that the routing algorithm is triggered exactly once per spawn
+    mock_brain_generator.generate_passenger()
+
+    assert mock_brain_generator.navigator.find_optimal_route.call_count == 1

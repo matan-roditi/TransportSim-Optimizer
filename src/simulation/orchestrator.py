@@ -145,17 +145,23 @@ class SimulationOrchestrator:
 
         # Process Bus Movement
         for bus in self.active_buses:
+
+            if bus.ticks_until_arrival == 0:
+                # Let passengers off first
+                bus.alight_passengers()
+
+                # Handle passenger boarding
+                self.active_passengers = bus.process_boarding(self.active_passengers)
+
             current_stop = bus.navigator.get_current_stop()
             next_stop = bus.navigator.get_next_stop()
 
-            # Calculate the time to the next stop (only needed if the bus is ready to depart)
+            # Calculate the time to the next stop
             travel_time = 0
-            if bus.ticks_until_arrival == 0:
-                # Bus is at a stop — handle passenger boarding
-                self.active_passengers = bus.process_boarding(self.active_passengers)
-                if next_stop:
-                    travel_time = self.get_travel_time_minutes(current_stop, next_stop)
-            # Tell the bus to process the minute
+            if bus.ticks_until_arrival == 0 and next_stop:
+                travel_time = self.get_travel_time_minutes(current_stop, next_stop)
+
+            # Watch the indentation here! This MUST be inside the for loop.
             bus.tick(travel_time_to_next=travel_time)
 
         # Advance the simulation clock by 1 minute

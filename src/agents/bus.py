@@ -122,8 +122,7 @@ class BusAgent:
             self.is_moving = False
             logger.info(f"Bus {self.bus_id} has finished its route.")
 
-
-def alight_passengers(self) -> List[PassengerAgent]:
+    def alight_passengers(self) -> List[PassengerAgent]:
         """
         Removes passengers whose target destination matches the current stop.
         Returns the list of passengers who successfully disembarked.

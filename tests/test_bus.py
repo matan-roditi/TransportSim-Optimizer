@@ -162,3 +162,38 @@ def test_bus_ignores_passengers_with_wrong_destination(bus_with_two_seats):
     bus_with_two_seats.process_boarding([wrong_dest_passenger])
     
     assert len(bus_with_two_seats.passengers) == 0
+
+def test_bus_alights_passengers_at_target_stop(bus_with_two_seats):
+    # Testing that a passenger is removed from the bus when reaching their destination
+    arriving_passenger = PassengerAgent(
+        lat=0, lon=0, destination=(0,0), origin_stop="Old", target_stop="Start"
+    )
+    bus_with_two_seats.passengers.append(arriving_passenger)
+    
+    bus_with_two_seats.alight_passengers()
+    
+    assert len(bus_with_two_seats.passengers) == 0
+
+
+def test_bus_keeps_passengers_going_further(bus_with_two_seats):
+    # Testing that a passenger whose destination is further ahead stays on board
+    continuing_passenger = PassengerAgent(
+        lat=0, lon=0, destination=(0,0), origin_stop="Old", target_stop="End"
+    )
+    bus_with_two_seats.passengers.append(continuing_passenger)
+    
+    bus_with_two_seats.alight_passengers()
+    
+    assert len(bus_with_two_seats.passengers) == 1
+
+
+def test_bus_returns_alighted_passengers(bus_with_two_seats):
+    # Testing that the method returns the list of people who got off
+    arriving_passenger = PassengerAgent(
+        lat=0, lon=0, destination=(0,0), origin_stop="Old", target_stop="Start"
+    )
+    bus_with_two_seats.passengers.append(arriving_passenger)
+    
+    alighted = bus_with_two_seats.alight_passengers()
+    
+    assert len(alighted) == 1

@@ -5,6 +5,7 @@ import requests
 import logging
 import math
 
+
 # Setup logging for external API communication and generation events
 logger = logging.getLogger(__name__)
 
@@ -25,75 +26,72 @@ class PassengerAgent:
 class PassengerGenerator:
     """
     Generates PassengerAgents based on neighborhood population density.
-    Uses geographical bounds and weights to distribute demand.
+    Uses a routing brain to assign logical origins and destinations.
     """
 
-    def __init__(self, neighborhoods: Dict[str, Any], osrm_url: str = "http://router.project-osrm.org"):
-        # Store neighborhood configuration and prepare weighting lists
+    def __init__(
+        self, 
+        neighborhoods: Dict[str, Any],
+        navigator: PassengerNavigator,
+        routes_cache: Dict[str, List[str]],
+        get_bus_time: Callable[[str, str], int],
+        get_walk_time: Callable[[Tuple[float, float], Tuple[float, float]], int]
+    ):
         self.neighborhoods = neighborhoods
         self.neighborhood_names = list(neighborhoods.keys())
         self.weights = [n["weight"] for n in neighborhoods.values()]
-        self.osrm_url = osrm_url
+        
+        self.navigator = navigator
+        self.routes_cache = routes_cache
+        self.get_bus_time = get_bus_time
+        self.get_walk_time = get_walk_time
 
-    def _get_walking_duration(self, origin: Tuple[float, float], dest: Tuple[float, float]) -> int:
+    def generate_passenger(self) -> PassengerAgent:
         """
-        Queries OSRM for the walking duration between two points.
-        Returns the duration in seconds.
+        Creates a passenger by selecting random start and end bounds based on weights.
+        Calculates the optimal multimodal route using the passenger brain.
         """
-        # OSRM requires coordinates in lon,lat order
-        coords = f"{origin[1]},{origin[0]};{dest[1]},{dest[0]}"
-        url = f"{self.osrm_url}/route/v1/foot/{coords}?overview=false"
-
-        try:
-            response = requests.get(url, timeout=5)
-            response.raise_for_status()
-            data = response.json()
-            if "routes" in data and data["routes"]:
-                return int(data["routes"][0]["duration"])
-        except Exception as e:
-            logger.error(f"OSRM Request failed: {e}. Falling back to default estimate.")
-
-        # Fallback if API is down or coordinates are invalid
-        return 600
-
-    def generate_passenger(self, nearest_stop_coords: Optional[Tuple[float, float]] = None) -> PassengerAgent:
-        """
-        Creates a passenger by selecting a neighborhood based on weight.
-        Randomizes coordinates within that neighborhood's bounds.
-        """
-        # Select a neighborhood based on population probability
-        selected_name = random.choices(
+        # Select random origin neighborhood and coordinates
+        selected_origin_name = random.choices(
             self.neighborhood_names, 
             weights=self.weights, 
             k=1
         )[0]
+        origin_bounds = self.neighborhoods[selected_origin_name]["bounds"]
+        lat = random.uniform(origin_bounds["lat"][0], origin_bounds["lat"][1])
+        lon = random.uniform(origin_bounds["lon"][0], origin_bounds["lon"][1])
+        
+        # Select random destination neighborhood and coordinates
+        selected_dest_name = random.choices(
+            self.neighborhood_names, 
+            weights=self.weights, 
+            k=1
+        )[0]
+        dest_bounds = self.neighborhoods[selected_dest_name]["bounds"]
+        dest_lat = random.uniform(dest_bounds["lat"][0], dest_bounds["lat"][1])
+        dest_lon = random.uniform(dest_bounds["lon"][0], dest_bounds["lon"][1])
+        destination = (dest_lat, dest_lon)
 
-        neighborhood = self.neighborhoods[selected_name]
-        bounds = neighborhood["bounds"]
+        # Query the brain for the best route using injected callbacks
+        origin_stop, target_stop, total_time = self.navigator.find_optimal_route(
+            origin_coords=(lat, lon),
+            dest_coords=destination,
+            routes_cache=self.routes_cache,
+            get_bus_time=self.get_bus_time,
+            get_walk_time=self.get_walk_time
+        )
 
-        # Generate random coordinates within the bounding box
-        lat = random.uniform(bounds["lat"][0], bounds["lat"][1])
-        lon = random.uniform(bounds["lon"][0], bounds["lon"][1])
-
-        # Assign mock destination coordinates
-        destination = (32.1624, 34.8447)
-
-        # Assign mock stops for the simulation handshake
-        # These will be replaced by actual database logic in future steps
-        mock_origin = "קניון ארנה"
-        mock_target = "ת. רכבת הרצליה"
-
-        walk_time = 0
-        if nearest_stop_coords:
-            walk_time = self._get_walking_duration((lat, lon), nearest_stop_coords)
+        # Prevent broken agents from spawning
+        if origin_stop is None or target_stop is None:
+            raise ValueError("No viable route found for passenger.")
 
         return PassengerAgent(
-            lat=lat,
-            lon=lon,
+            lat=lat, 
+            lon=lon, 
             destination=destination,
-            origin_stop=mock_origin,
-            target_stop=mock_target,
-            walking_time_to_stop=walk_time
+            origin_stop=origin_stop,
+            target_stop=target_stop,
+            walking_time_to_stop=0 
         )
 
 

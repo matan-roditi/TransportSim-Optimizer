@@ -4,10 +4,8 @@ import random
 import requests
 import logging
 
-
 # Setup logging for external API communication and generation events
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class PassengerAgent:
@@ -18,8 +16,9 @@ class PassengerAgent:
     lat: float
     lon: float
     destination: Tuple[float, float]
-    walking_time_to_stop: int = 0  # Time in seconds to reach the nearest stop
-
+    origin_stop: str
+    target_stop: str
+    walking_time_to_stop: int = 0
 
 class PassengerGenerator:
     """
@@ -50,7 +49,7 @@ class PassengerGenerator:
             if "routes" in data and data["routes"]:
                 return int(data["routes"][0]["duration"])
         except Exception as e:
-            logger.error(f"OSRM Request failed: {e}. Falling back to 10-minute estimate.")
+            logger.error(f"OSRM Request failed: {e}. Falling back to default estimate.")
             
         # Fallback if API is down or coordinates are invalid
         return 600
@@ -74,11 +73,14 @@ class PassengerGenerator:
         lat = random.uniform(bounds["lat"][0], bounds["lat"][1])
         lon = random.uniform(bounds["lon"][0], bounds["lon"][1])
         
-        # Assign a mock destination (e.g., Herzliya Train Station)
-        # This will be replaced by OSRM/POI logic in future steps
+        # Assign mock destination coordinates
         destination = (32.1624, 34.8447)
 
-        # Calculate walking time to the nearest stop (currently mocked as destination)
+        # Assign mock stops for the simulation handshake
+        # These will be replaced by actual database logic in future steps
+        mock_origin = "קניון ארנה"
+        mock_target = "ת. רכבת הרצליה"
+
         walk_time = 0
         if nearest_stop_coords:
             walk_time = self._get_walking_duration((lat, lon), nearest_stop_coords)
@@ -86,6 +88,8 @@ class PassengerGenerator:
         return PassengerAgent(
             lat=lat, 
             lon=lon, 
-            destination=destination, 
+            destination=destination,
+            origin_stop=mock_origin,
+            target_stop=mock_target,
             walking_time_to_stop=walk_time
         )

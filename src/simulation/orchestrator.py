@@ -136,6 +136,18 @@ class SimulationOrchestrator:
         self.active_passengers.append(new_passenger)
         logger.info(f"Generated new passenger at ({new_passenger.lat}, {new_passenger.lon}) with destination {new_passenger.destination}")
 
+        # Process Bus Movement
+        for bus in self.active_buses:
+            current_stop = bus.navigator.get_current_stop()
+            next_stop = bus.navigator.get_next_stop()
+
+            # Calculate the time to the next stop (only needed if the bus is ready to depart)
+            travel_time = 0
+            if next_stop and bus.ticks_until_arrival == 0:
+                 travel_time = self.get_travel_time_minutes(current_stop, next_stop)
+            # Tell the bus to process the minute
+            bus.tick(travel_time_to_next=travel_time)
+
         # Advance the simulation clock by 1 minute
         self.clock.tick()
 

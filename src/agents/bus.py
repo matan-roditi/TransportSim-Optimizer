@@ -71,8 +71,39 @@ class BusAgent:
             f"Bus {self.bus_id}: stop duration {total_duration}s "
             f"(boarding: {boarding_time}s, exiting: {exiting_time}s)"
         )
-        
+
         return total_duration
+
+    def tick(self, travel_time_to_next: int) -> None:
+        """
+        Processes one simulation tick (1 minute) for the bus.
+        Handles movement towards the next stop.
+        """
+        if self.ticks_until_arrival > 0:
+            # The bus is currently driving
+            self.ticks_until_arrival -= 1
+            logger.debug(f"Bus {self.bus_id} driving. {self.ticks_until_arrival} mins to next stop.")
+            return
+
+        # If ticks_until_arrival is 0, the bus has arrived at a stop.
+        current_stop = self.navigator.get_current_stop()
+        logger.info(f"Bus {self.bus_id} has arrived at stop: {current_stop}")
+
+        # Phase 2 (Boarding Logic) will go here later!
+
+        # After handling the stop, figure out where to go next
+        next_stop = self.navigator.get_next_stop()
+
+        if next_stop:
+            # Prepare to drive to the next stop
+            self.navigator.advance()
+            self.ticks_until_arrival = travel_time_to_next
+            self.is_moving = True
+            logger.debug(f"Bus {self.bus_id} departing for {next_stop} (ETA: {self.ticks_until_arrival} mins)")
+        else:
+            # The bus has finished its route
+            self.is_moving = False
+            logger.info(f"Bus {self.bus_id} has finished its route.")
 
 
 class RouteNavigator:
@@ -92,7 +123,7 @@ class RouteNavigator:
     def get_next_stop(self) -> Optional[str]:
         if self.current_index + 1 < len(self.stops):
             return self.stops[self.current_index + 1]
-        return None # End of the line
+        return None  # End of the line
 
     def advance(self):
         """Moves the internal pointer to the next stop"""

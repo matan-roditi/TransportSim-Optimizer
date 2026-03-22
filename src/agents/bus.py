@@ -132,3 +132,16 @@ class RouteNavigator:
             logger.info(f"Line {self.line_id}: Advancing to stop {self.get_current_stop()}")
         else:
             logger.warning(f"Line {self.line_id}: Reached the final stop")
+
+    def reaches_stop(self, target_stop: str) -> bool:
+        """
+        Evaluates if the given stop is ahead on the remaining route.
+        """
+        remaining_stops = self.stops[self.current_index:]
+        
+        if target_stop in remaining_stops:
+            logger.debug(f"Line {self.line_id} reaches target: {target_stop}")
+            return True
+            
+        logger.debug(f"Line {self.line_id} does not reach target: {target_stop}")
+        return False

@@ -1,6 +1,7 @@
 import pytest
 from datetime import time, datetime
 from simulation.orchestrator import SimulationOrchestrator
+from unittest.mock import patch, MagicMock
 
 TEST_NEIGHBORHOODS = {
     "Green_Herzliya": {
@@ -73,3 +74,53 @@ def test_simulation_ends_at_twenty_two():
     orchestrator.clock.current_dt = datetime.strptime("22:00", "%H:%M")
     # This test depends on how you implement is_running
     assert orchestrator.is_running() is False
+
+@pytest.fixture
+def orchestrator():
+    # Mock the initialization loaders to keep the test environment isolated and fast
+    with patch("simulation.orchestrator.PassengerGenerator"), \
+         patch.object(SimulationOrchestrator, "_load_routes", return_value={}), \
+         patch.object(SimulationOrchestrator, "_load_travel_times", return_value={}):
+        return SimulationOrchestrator(neighborhoods={})
+
+
+def test_get_travel_time_returns_cached_value(orchestrator):
+    # Setup the cache with a known route duration
+    orchestrator.travel_times_cache = {("Stop A", "Stop B"): 5}
+
+    result = orchestrator.get_travel_time_minutes("Stop A", "Stop B")
+
+    assert result == 5
+
+
+def test_get_travel_time_returns_fallback_value(orchestrator):
+    # Clear the cache to simulate an unknown edge route
+    orchestrator.travel_times_cache = {}
+
+    result = orchestrator.get_travel_time_minutes("Unknown A", "Unknown B")
+
+    assert result == 2
+
+
+@patch.dict("os.environ", {}, clear=True)
+def test_load_travel_times_missing_credentials(orchestrator):
+    # Simulate an environment missing PostgreSQL variables
+    result = orchestrator._load_travel_times()
+    
+    assert result == {}
+
+
+@patch.dict("os.environ", {"PG_HOST": "h", "PG_PORT": "p", "PG_DB": "d", "PG_USER": "u", "PG_PASSWORD": "pw"})
+@patch("simulation.orchestrator.psycopg2.connect")
+def test_load_travel_times_calculates_minutes_correctly(mock_connect, orchestrator):
+    # Setup a mock database response returning exactly sixty seconds
+    mock_cursor = MagicMock()
+    mock_cursor.fetchall.return_value = [("Stop A", "Stop B", 60)]
+
+    mock_conn = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+    mock_connect.return_value.__enter__.return_value = mock_conn
+
+    result = orchestrator._load_travel_times()
+
+    assert result == {("Stop A", "Stop B"): 1}

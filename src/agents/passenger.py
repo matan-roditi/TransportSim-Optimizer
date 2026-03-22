@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, List
 import random
 import requests
 import logging
+import math
 
 # Setup logging for external API communication and generation events
 logger = logging.getLogger(__name__)
@@ -94,3 +95,35 @@ class PassengerGenerator:
             target_stop=mock_target,
             walking_time_to_stop=walk_time
         )
+
+
+class PassengerNavigator:
+    """
+    Acts as the routing brain for passengers.
+    Finds the most optimal stops based on geographic distance.
+    """
+
+    def __init__(self, stops: Dict[str, Tuple[float, float]]):
+        self.stops = stops
+
+    def get_closest_stops(self, lat: float, lon: float, count: int = 5) -> List[str]:
+        """
+        Calculates the straight-line distance to all known stops.
+        Returns the names of the closest stops sorted by distance.
+        """
+        distances = []
+
+        for stop_name, coords in self.stops.items():
+            stop_lat, stop_lon = coords
+
+            # Calculate the straight-line distance between the passenger and the stop
+            dist = math.hypot(lat - stop_lat, lon - stop_lon)
+            distances.append((dist, stop_name))
+
+        # Sort the list by the calculated distance (the first element in the tuple)
+        distances.sort(key=lambda x: x[0])
+
+        # Extract just the names of the closest stops up to the requested count
+        closest_stops = [stop_name for dist, stop_name in distances[:count]]
+
+        return closest_stops

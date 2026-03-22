@@ -1,5 +1,5 @@
 import pytest
-from agents.bus import BusAgent
+from agents.bus import BusAgent, RouteNavigator
 
 # Test route data fixture
 TEST_ROUTE_DATA = {
@@ -74,9 +74,31 @@ def test_max_time_boarding_vs_exiting():
     duration = bus.calculate_stop_duration(boarding_count=10, exiting_count=5)
     assert duration == 60
 
+
 def test_max_time_exiting_heavy():
     # Scenario: 4 passengers boarding (30s) and 10 passengers exiting (60s)
     # The bus should take the maximum: 60s
     bus = BusAgent(bus_id="Line_1", route_data=TEST_ROUTE_DATA)
     duration = bus.calculate_stop_duration(boarding_count=4, exiting_count=10)
     assert duration == 60
+
+
+@pytest.fixture
+def mock_navigator():
+    """Provides a fresh navigator with a linear route."""
+    return RouteNavigator(line_id="Line A", stops=["Alpha", "Beta", "Gamma", "Delta"])
+
+
+def test_navigator_reaches_future_stop(mock_navigator):
+    assert mock_navigator.reaches_stop("Gamma") is True
+
+
+def test_navigator_does_not_reach_passed_stop(mock_navigator):
+    mock_navigator.advance()
+    mock_navigator.advance()
+
+    assert mock_navigator.reaches_stop("Alpha") is False
+
+
+def test_navigator_does_not_reach_off_route_stop(mock_navigator):
+    assert mock_navigator.reaches_stop("Omega") is False

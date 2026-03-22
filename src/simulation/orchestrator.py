@@ -143,8 +143,11 @@ class SimulationOrchestrator:
 
             # Calculate the time to the next stop (only needed if the bus is ready to depart)
             travel_time = 0
-            if next_stop and bus.ticks_until_arrival == 0:
-                 travel_time = self.get_travel_time_minutes(current_stop, next_stop)
+            if bus.ticks_until_arrival == 0:
+                # Bus is at a stop — handle passenger boarding
+                self.active_passengers = bus.process_boarding(self.active_passengers)
+                if next_stop:
+                    travel_time = self.get_travel_time_minutes(current_stop, next_stop)
             # Tell the bus to process the minute
             bus.tick(travel_time_to_next=travel_time)
 

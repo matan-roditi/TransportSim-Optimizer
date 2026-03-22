@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, Dict, Any, Optional, List
+from typing import Tuple, Dict, Any, Optional, List, Callable
 import random
 import requests
 import logging
@@ -127,3 +127,49 @@ class PassengerNavigator:
         closest_stops = [stop_name for dist, stop_name in distances[:count]]
 
         return closest_stops
+
+    def find_optimal_route(
+        self,
+        origin_coords: Tuple[float, float],
+        dest_coords: Tuple[float, float],
+        routes_cache: Dict[str, List[str]],
+        get_bus_time: Callable[[str, str], int],
+        get_walk_time: Callable[[Tuple[float, float], Tuple[float, float]], int]
+    ) -> Tuple[Optional[str], Optional[str], float]:
+        """
+        Finds the fastest multimodal route connecting a passenger origin to their destination.
+        Prunes combinations by verifying bus line connectivity before calculating time.
+        """
+        closest_origins = self.get_closest_stops(origin_coords[0], origin_coords[1], count=5)
+        closest_destinations = self.get_closest_stops(dest_coords[0], dest_coords[1], count=5)
+
+        best_time = float('inf')
+        best_origin = None
+        best_dest = None
+
+        for o_stop in closest_origins:
+            for d_stop in closest_destinations:
+                
+                # Verify if any route connects these two stops in the correct direction
+                is_connected = False
+                for stops_list in routes_cache.values():
+                    if o_stop in stops_list and d_stop in stops_list:
+                        if stops_list.index(o_stop) < stops_list.index(d_stop):
+                            is_connected = True
+                            break
+
+                if is_connected:
+                    # Calculate the three legs of the journey
+                    walk_to_stop = get_walk_time(origin_coords, self.stops[o_stop])
+                    bus_ride = get_bus_time(o_stop, d_stop)
+                    walk_to_dest = get_walk_time(self.stops[d_stop], dest_coords)
+
+                    total_time = walk_to_stop + bus_ride + walk_to_dest
+
+                    # Update the winning route if this combination is faster
+                    if total_time < best_time:
+                        best_time = total_time
+                        best_origin = o_stop
+                        best_dest = d_stop
+
+        return best_origin, best_dest, best_time

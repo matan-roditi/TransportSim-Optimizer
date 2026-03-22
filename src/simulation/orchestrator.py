@@ -136,6 +136,13 @@ class SimulationOrchestrator:
         self.active_passengers.append(new_passenger)
         logger.info(f"Generated new passenger at ({new_passenger.lat}, {new_passenger.lon}) with destination {new_passenger.destination}")
 
+        if bus.ticks_until_arrival == 0:
+                # Let passengers off first to free up capacity
+                arrived_passengers = bus.alight_passengers()
+
+                # Bus is at a stop — handle passenger boarding
+                self.active_passengers = bus.process_boarding(self.active_passengers)
+
         # Process Bus Movement
         for bus in self.active_buses:
             current_stop = bus.navigator.get_current_stop()

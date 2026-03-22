@@ -123,6 +123,29 @@ class BusAgent:
             logger.info(f"Bus {self.bus_id} has finished its route.")
 
 
+def alight_passengers(self) -> List[PassengerAgent]:
+        """
+        Removes passengers whose target destination matches the current stop.
+        Returns the list of passengers who successfully disembarked.
+        """
+        current_stop = self.navigator.get_current_stop()
+        staying_onboard = []
+        getting_off = []
+
+        for passenger in self.passengers:
+            if passenger.target_stop == current_stop:
+                getting_off.append(passenger)
+            else:
+                staying_onboard.append(passenger)
+
+        self.passengers = staying_onboard
+
+        if getting_off:
+            logger.info(f"Bus {self.bus_id} dropped off {len(getting_off)} passengers at {current_stop}")
+
+        return getting_off
+
+
 class RouteNavigator:
     """
     Handles the sequence of stops for a specific bus line.

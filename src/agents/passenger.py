@@ -20,6 +20,7 @@ class PassengerAgent:
     target_stop: str
     walking_time_to_stop: int = 0
 
+
 class PassengerGenerator:
     """
     Generates PassengerAgents based on neighborhood population density.
@@ -41,7 +42,7 @@ class PassengerGenerator:
         # OSRM requires coordinates in lon,lat order
         coords = f"{origin[1]},{origin[0]};{dest[1]},{dest[0]}"
         url = f"{self.osrm_url}/route/v1/foot/{coords}?overview=false"
-        
+
         try:
             response = requests.get(url, timeout=5)
             response.raise_for_status()
@@ -50,7 +51,7 @@ class PassengerGenerator:
                 return int(data["routes"][0]["duration"])
         except Exception as e:
             logger.error(f"OSRM Request failed: {e}. Falling back to default estimate.")
-            
+
         # Fallback if API is down or coordinates are invalid
         return 600
 
@@ -65,14 +66,14 @@ class PassengerGenerator:
             weights=self.weights, 
             k=1
         )[0]
-        
+
         neighborhood = self.neighborhoods[selected_name]
         bounds = neighborhood["bounds"]
-        
+
         # Generate random coordinates within the bounding box
         lat = random.uniform(bounds["lat"][0], bounds["lat"][1])
         lon = random.uniform(bounds["lon"][0], bounds["lon"][1])
-        
+
         # Assign mock destination coordinates
         destination = (32.1624, 34.8447)
 
@@ -84,10 +85,10 @@ class PassengerGenerator:
         walk_time = 0
         if nearest_stop_coords:
             walk_time = self._get_walking_duration((lat, lon), nearest_stop_coords)
-        
+
         return PassengerAgent(
-            lat=lat, 
-            lon=lon, 
+            lat=lat,
+            lon=lon,
             destination=destination,
             origin_stop=mock_origin,
             target_stop=mock_target,

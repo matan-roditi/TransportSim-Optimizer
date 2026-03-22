@@ -116,7 +116,7 @@ class SimulationOrchestrator:
         # Check with the dispatcher if a new bus should start its route
         if self.dispatcher.should_dispatch(current_time):
             bus_id = f"Bus_{current_time.strftime('%H%M')}"
-            
+
             # Fetch the specific stops for Line 1 from the memory cache
             target_line = "Line 1"
             line_stops = self.routes_cache.get(target_line, [])
@@ -136,32 +136,25 @@ class SimulationOrchestrator:
         self.active_passengers.append(new_passenger)
         logger.info(f"Generated new passenger at ({new_passenger.lat}, {new_passenger.lon}) with destination {new_passenger.destination}")
 
-        if bus.ticks_until_arrival == 0:
+        # Process Bus Movement
+        for bus in self.active_buses:
+            current_stop = bus.navigator.get_current_stop()
+            next_stop = bus.navigator.get_next_stop()
+
+            # Handle arrivals, alighting, and boarding
+            if bus.ticks_until_arrival == 0:
                 # Let passengers off first to free up capacity
-                arrived_passengers = bus.alight_passengers()
+                bus.alight_passengers()
 
                 # Bus is at a stop — handle passenger boarding
                 self.active_passengers = bus.process_boarding(self.active_passengers)
-
-        # Process Bus Movement
-        for bus in self.active_buses:
-
-            if bus.ticks_until_arrival == 0:
-                # Let passengers off first
-                bus.alight_passengers()
-
-                # Handle passenger boarding
-                self.active_passengers = bus.process_boarding(self.active_passengers)
-
-            current_stop = bus.navigator.get_current_stop()
-            next_stop = bus.navigator.get_next_stop()
 
             # Calculate the time to the next stop
             travel_time = 0
             if bus.ticks_until_arrival == 0 and next_stop:
                 travel_time = self.get_travel_time_minutes(current_stop, next_stop)
 
-            # Watch the indentation here! This MUST be inside the for loop.
+            # Tell the bus to process the minute
             bus.tick(travel_time_to_next=travel_time)
 
         # Advance the simulation clock by 1 minute

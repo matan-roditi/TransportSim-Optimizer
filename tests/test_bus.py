@@ -19,17 +19,23 @@ def test_bus_capacity_assignment():
     assert bus.capacity == 50
 
 def test_bus_boarding_limit_return_value():
-    # Verify the board_passengers method correctly returns the number of boarded passengers
+    # Verify that process_boarding leaves 5 passengers unboarded when 55 arrive at a 50-seat bus
     bus = BusAgent(bus_id="Line_1", route_data=TEST_ROUTE_DATA, capacity=50)
-    potential_passengers = list(range(55))
-    boarded_count = bus.board_passengers(potential_passengers)
-    assert boarded_count == 50
+    waiting = [
+        PassengerAgent(lat=0, lon=0, destination=(0, 0), origin_stop="Stop_A", target_stop="Stop_B")
+        for _ in range(55)
+    ]
+    leftover = bus.process_boarding(waiting)
+    assert len(leftover) == 5
 
 def test_bus_boarding_limit_passenger_list():
     # Verify the bus strictly enforces the 50-passenger limit in its internal list
     bus = BusAgent(bus_id="Line_1", route_data=TEST_ROUTE_DATA, capacity=50)
-    potential_passengers = list(range(55))
-    bus.board_passengers(potential_passengers)
+    waiting = [
+        PassengerAgent(lat=0, lon=0, destination=(0, 0), origin_stop="Stop_A", target_stop="Stop_B")
+        for _ in range(55)
+    ]
+    bus.process_boarding(waiting)
     assert len(bus.passengers) == 50
 
 def test_base_dwell_time():

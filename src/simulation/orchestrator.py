@@ -39,7 +39,16 @@ class SimulationOrchestrator:
             "Center Station": (32.1600, 34.8400),
             "South Station": (32.1500, 34.8400)
         }
-        from agents.passenger import PassengerNavigator
+        # Load all bus routes into memory once when the simulation starts
+        self.routes_cache = self._load_routes("bus_lines_save.json")
+        
+        # Inject guaranteed valid routes for our dummy stops to satisfy the routing brain
+        self.routes_cache["Mock Line Forward"] = ["North Station", "Center Station", "South Station"]
+        self.routes_cache["Mock Line Reverse"] = ["South Station", "Center Station", "North Station"]
+
+        # Load travel times between stops from the database
+        self.travel_times_cache = self._load_travel_times()
+
         self.navigator = PassengerNavigator(stops=mock_stop_coords)
 
         # Initialize the person factory for Herzliya with fully wired dependencies

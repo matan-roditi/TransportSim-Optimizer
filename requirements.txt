@@ -16,3 +16,6 @@ streamlit-folium
 folium
 types-requests
 pytest
+
+openai
+python-dotenv

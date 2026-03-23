@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Tuple
 from simulation.clock import SimulationClock
 from simulation.dispatcher import Dispatcher
 from agents.bus import BusAgent
-from agents.passenger import PassengerAgent, PassengerGenerator
+from agents.passenger import PassengerAgent, PassengerGenerator, PassengerNavigator
 
 # Setup logging for the central simulation brain
 logger = logging.getLogger(__name__)
@@ -27,16 +27,33 @@ class SimulationOrchestrator:
         self.clock = SimulationClock("06:00", "22:00")
         # Initialize the frequency manager
         self.dispatcher = Dispatcher()
-        # Initialize the person factory for Herzliya
-        self.passenger_generator = PassengerGenerator(neighborhoods)
+
         # Load all bus routes into memory once when the simulation starts
         self.routes_cache = self._load_routes("bus_lines_save.json")
         # Load travel times between stops from the database
         self.travel_times_cache: Dict[Tuple[str, str], int] = self._load_travel_times()
 
+        # Initialize the passenger routing brain
+        mock_stop_coords = {
+            "North Station": (32.1700, 34.8400),
+            "Center Station": (32.1600, 34.8400),
+            "South Station": (32.1500, 34.8400)
+        }
+        from agents.passenger import PassengerNavigator
+        self.navigator = PassengerNavigator(stops=mock_stop_coords)
+
+        # Initialize the person factory for Herzliya with fully wired dependencies
+        self.passenger_generator = PassengerGenerator(
+            neighborhoods=neighborhoods,
+            navigator=self.navigator,
+            routes_cache=self.routes_cache,
+            get_bus_time=self.get_travel_time_minutes,
+            get_walk_time=self._calculate_walk_time
+        )
+
         # Lists to track active entities in the world
-        self.active_buses: List[BusAgent] = []
-        self.active_passengers: List[PassengerAgent] = []
+        self.active_buses = []
+        self.active_passengers = []
 
         logger.info("Simulation Orchestrator initialized for Herzliya")
 

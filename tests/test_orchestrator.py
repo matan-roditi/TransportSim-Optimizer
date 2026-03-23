@@ -124,3 +124,27 @@ def test_load_travel_times_calculates_minutes_correctly(mock_connect, orchestrat
     result = orchestrator._load_travel_times()
 
     assert result == {("Stop A", "Stop B"): 1}
+
+
+def test_walk_time_applies_urban_circuity_multiplier(orchestrator):
+    # Testing that a straight line distance is multiplied by the urban circuity factor
+    start_point = (32.1600, 34.8400)
+    end_point = (32.1700, 34.8400) 
+
+    time = orchestrator._calculate_walk_time(start_point, end_point)
+
+    # Distance is roughly one thousand one hundred twelve meters
+    # Actual distance with the multiplier is roughly one thousand four hundred forty five meters
+    # Base time at average speed is roughly seventeen minutes
+    # Crosswalk penalty adds an extra four minutes
+    # Total expected time truncated to integer is twenty one minutes
+    assert time == 21
+
+
+def test_walk_time_returns_minimum_one_minute(orchestrator):
+    # Testing that even if the passenger spawns exactly on the bus stop it takes 1 minute to board
+    same_location = (32.1624, 34.8447)
+
+    time = orchestrator._calculate_walk_time(same_location, same_location)
+
+    assert time == 1

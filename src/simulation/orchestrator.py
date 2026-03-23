@@ -60,9 +60,8 @@ class SimulationOrchestrator:
             get_walk_time=self._calculate_walk_time
         )
 
-        # Lists to track active entities in the world
-        self.active_buses = []
-        self.active_passengers = []
+        self.active_buses: List[BusAgent] = []
+        self.active_passengers: List[PassengerAgent] = []
 
         logger.info("Simulation Orchestrator initialized for Herzliya")
 

@@ -1,5 +1,6 @@
 import logging
 import json
+import math
 import os
 import psycopg2
 from datetime import time
@@ -166,3 +167,35 @@ class SimulationOrchestrator:
         """
         # The simulation day ends exactly at 22:00
         return bool(self.clock.current_time < time(22, 0))
+
+    def _calculate_walk_time(self, coord_a: Tuple[float, float], coord_b: Tuple[float, float]) -> int:
+        """
+        Calculates walking time in minutes using the Haversine formula.
+        Applies an urban circuity multiplier and a crosswalk penalty.
+        """
+        lat1, lon1 = coord_a
+        lat2, lon2 = coord_b
+
+        earth_radius_meters = 6371000
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        delta_phi = math.radians(lat2 - lat1)
+        delta_lambda = math.radians(lon2 - lon1)
+
+        a = math.sin(delta_phi / 2.0) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0) ** 2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+        straight_line_distance = earth_radius_meters * c
+
+        # Apply standard urban detour index for a highly walkable grid
+        urban_circuity_multiplier = 1.3
+        actual_walking_distance = straight_line_distance * urban_circuity_multiplier
+
+        average_speed_meters_per_minute = 84.0
+        base_minutes = actual_walking_distance / average_speed_meters_per_minute
+
+        crosswalk_penalty = base_minutes // 4
+
+        total_time = int(base_minutes + crosswalk_penalty)
+
+        return max(1, total_time)

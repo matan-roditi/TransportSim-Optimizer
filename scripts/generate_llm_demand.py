@@ -1,7 +1,15 @@
 import os
 import json
+import logging
 from openai import OpenAI
 from dotenv import load_dotenv
+
+# Configure the logger to format messages with timestamps
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables from a .env file to secure the API key
 load_dotenv()
@@ -15,22 +23,33 @@ def generate_herzliya_demand_matrix() -> None:
     Prompts the LLM to generate a realistic daily commute schedule for Herzliya.
     Saves the output to a JSON file to be consumed by the simulation.
     """
-    print("Connecting to the LLM to generate Herzliya commute data...")
+    logger.info("Connecting to the LLM to generate Herzliya commute data...")
 
     # We ask for a specific JSON object structure to ensure perfect parsing
+    # The neighborhood list has been expanded to cover the entire city
     prompt = """
     You are an expert urban mobility data generator modeling the daily commute patterns of Herzliya, Israel. 
-    
+
     Generate a realistic travel demand matrix for an average weekday from 06:00 to 22:00. 
-    Scale: 1 passenger object in your output represents exactly 200 real citizens. 
+    Scale: 1 passenger object in your output represents exactly 500 real citizens. 
     Consider Herzliya's specific geography, such as morning commutes toward the tech hubs in Pituach and evening returns to residential zones.
-        Each passenger object must include:
-        - departing_time: The time they start their commute (HH:MM format)
-        - origin_neighborhood: The neighborhood they depart from
-        - destination_neighborhood: The neighborhood they are heading to    
+
+    Each passenger object must include:
+    - departing_time: The time they start their commute (HH:MM format)
+    - origin_neighborhood: The neighborhood they depart from
+    - destination_neighborhood: The neighborhood they are heading to    
+
+    You must strictly limit locations to the following exact neighborhood names:
+    [
+        "Herzliya_Pituach", "Marina", "Nof_Yam", "Herzliya_B", 
+        "Green_Herzliya", "Young_Herzliya", "Galil_Yam", "City_Center", 
+        "Neve_Yisrael", "Neve_Amirim", "Shikun_Darom", "Neve_Amal", 
+        "Yad_HaTisha", "Gan_Rashal", "Neve_Oved"
+    ]
+
     You must return ONLY a valid JSON object with a single key called "passengers". 
     The value must be an array of objects. Do not include any conversational text or markdown formatting. 
-    
+
     The JSON schema must be exactly:
     {
       "passengers": [
@@ -55,23 +74,23 @@ def generate_herzliya_demand_matrix() -> None:
         )
 
         raw_json_string = response.choices[0].message.content
-        
+
         # Parse the string into a Python dictionary to verify it is valid JSON
         if raw_json_string is None:
             raise ValueError("Received empty response from the API.")
-            
+
         demand_data = json.loads(raw_json_string)
 
         output_path = "herzliya_demand.json"
-        
+
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(demand_data, f, indent=4)
-            
-        print(f"Success! Generated {len(demand_data['passengers'])} passenger batches.")
-        print(f"Data saved safely to {output_path}")
+
+        logger.info(f"Success! Generated {len(demand_data['passengers'])} passenger batches.")
+        logger.info(f"Data saved safely to {output_path}")
 
     except Exception as e:
-        print(f"An error occurred during generation: {e}")
+        logger.error(f"An error occurred during generation: {e}")
 
 if __name__ == "__main__":
     generate_herzliya_demand_matrix()

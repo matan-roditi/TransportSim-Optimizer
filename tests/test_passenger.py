@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 from agents.passenger import PassengerAgent, PassengerGenerator
 
+
 @pytest.fixture
 def mock_brain_generator():
     """Provides a generator equipped with a mocked navigator for testing."""
@@ -12,9 +13,9 @@ def mock_brain_generator():
         }
     }
 
-    # Create a fake navigator that always returns a guaranteed perfect route
+    # Create a fake navigator that returns a guaranteed perfect route including the chosen line
     mock_navigator = MagicMock()
-    mock_navigator.find_optimal_route.return_value = ("Calculated Start", "Calculated End", 15.0)
+    mock_navigator.find_optimal_route.return_value = ("Calculated Start", "Calculated End", "Fast Line", 15.0)
 
     return PassengerGenerator(
         neighborhoods=dummy_neighborhoods,
@@ -23,6 +24,13 @@ def mock_brain_generator():
         get_bus_time=lambda o, d: 5,
         get_walk_time=lambda o, d: 5
     )
+
+
+def test_generator_assigns_chosen_line_to_passenger(mock_brain_generator):
+    # Testing that the passenger knows exactly which bus line to wait for
+    passenger = mock_brain_generator.generate_passenger("Center", "Center")
+    assert passenger.chosen_line == "Fast Line"
+
 
 def test_passenger_spawn_lat_within_bounds(mock_brain_generator):
     # Verify the generated passenger latitude is within the defined boundaries
@@ -58,7 +66,7 @@ def test_generator_syncs_passenger_origin_with_navigator_call(mock_brain_generat
 
 def test_generator_raises_value_error_if_no_route_found(mock_brain_generator):
     # Testing that the generator aborts if the passenger cannot physically reach the destination
-    mock_brain_generator.navigator.find_optimal_route.return_value = (None, None, float('inf'))
+    mock_brain_generator.navigator.find_optimal_route.return_value = (None, None, None, float('inf'))
     with pytest.raises(ValueError):
         mock_brain_generator.generate_passenger("Center", "Center")
 

@@ -126,67 +126,51 @@ class SimulationOrchestrator:
 
     def run_tick(self) -> None:
         """
-        Advances the simulation by one tick (1 minute).
+        Advances the simulation by one tick.
         Handles bus dispatching and passenger generation based on the current time.
         """
         current_time = self.clock.current_time
         current_time_str = current_time.strftime("%H:%M")
 
-        # Check with the dispatcher if a new bus should start its route
         if self.dispatcher.should_dispatch(current_time):
-            # Dispatch a bus for all active lines in the cache instead of hardcoded Line 1
             for target_line, line_stops in self.routes_cache.items():
                 if not line_stops:
                     continue
-
                 bus_id = f"Bus_{target_line.replace(' ', '')}_{current_time.strftime('%H%M')}"
-
-                # Format the data exactly as BusAgent expects it
-                route_data = {
-                    "line_id": target_line,
-                    "stops": line_stops
-                }
-
+                route_data = {"line_id": target_line, "stops": line_stops}
                 new_bus = BusAgent(bus_id=bus_id, route_data=route_data)
                 self.active_buses.append(new_bus)
-                logger.info(f"Deployed new bus: {bus_id} on {target_line}")
+                logger.info(f"[{current_time_str}] 🚌 {bus_id} departing empty from {line_stops[0]} on {target_line}")
 
-        # Generate new passengers based on the LLM schedule
         new_passengers = self.passenger_generator.generate_passengers_for_time(current_time_str)
         if new_passengers:
             self.active_passengers.extend(new_passengers)
-            logger.info(f"[{current_time_str}] Deployed {len(new_passengers)} scheduled passengers.")
+            logger.info(f"[{current_time_str}] 🧍 Deployed {len(new_passengers)} scheduled passengers.")
 
-        # Process Bus Movement
         for bus in self.active_buses:
             current_stop = bus.navigator.get_current_stop()
             next_stop = bus.navigator.get_next_stop()
 
-            # Handle arrivals, alighting, and boarding
             if bus.ticks_until_arrival == 0:
-                # Let passengers off first to free up capacity
+                passengers_before_alight = len(getattr(bus, 'passengers', []))
                 bus.alight_passengers()
+                passengers_after_alight = len(getattr(bus, 'passengers', []))
+                alighted_count = passengers_before_alight - passengers_after_alight
 
-                # Bus is at a stop — handle passenger boarding
+                waiting_passengers_before = len(self.active_passengers)
                 self.active_passengers = bus.process_boarding(self.active_passengers)
+                boarded_count = waiting_passengers_before - len(self.active_passengers)
+                current_load = len(getattr(bus, 'passengers', []))
 
-            # Calculate the time to the next stop
+                if alighted_count > 0 or boarded_count > 0:
+                    logger.info(f"[{current_time_str}] 🚏 {bus.bus_id} at {current_stop} | Left: {alighted_count} | Boarded: {boarded_count} | Total Inside: {current_load}")
+
             travel_time = 0
             if bus.ticks_until_arrival == 0 and next_stop:
                 travel_time = self.get_travel_time_minutes(current_stop, next_stop)
-
-            # Tell the bus to process the minute
             bus.tick(travel_time_to_next=travel_time)
 
-        # Advance the simulation clock by 1 minute
         self.clock.tick()
-
-    def is_running(self) -> bool:
-        """
-        Checks if the simulation is still within its operational hours (06:00-22:00).
-        """
-        # The simulation day ends exactly at 22:00
-        return bool(self.clock.current_time < time(22, 0))
 
     def _calculate_walk_time(self, coord_a: Tuple[float, float], coord_b: Tuple[float, float]) -> int:
         """

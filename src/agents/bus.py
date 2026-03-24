@@ -107,7 +107,7 @@ class BusAgent:
 
         # If ticks_until_arrival is 0, the bus has arrived at a stop.
         current_stop = self.navigator.get_current_stop()
-        logger.info(f"Bus {self.bus_id} has arrived at stop: {current_stop}")
+        # logger.info(f"Bus {self.bus_id} has arrived at stop: {current_stop}")
 
         # Phase 2 (Boarding Logic) will go here later!
 
@@ -123,7 +123,7 @@ class BusAgent:
         else:
             # The bus has finished its route
             self.is_moving = False
-            logger.info(f"Bus {self.bus_id} has finished its route.")
+            # logger.info(f"Bus {self.bus_id} has finished its route.")
 
     def alight_passengers(self) -> List[PassengerAgent]:
         """

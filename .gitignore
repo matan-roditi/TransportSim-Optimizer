@@ -11,6 +11,7 @@ venv/
 ENV/
 stops.txt
 bus_lines_save.json
+herzliya_demand.json
 
 # --- Generated transport simulation data ---
 src/database/*.csv

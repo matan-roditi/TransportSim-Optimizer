@@ -70,7 +70,7 @@ def test_optimizer_selects_valid_connected_origin(
     navigator, mock_routes_cache, mock_bus_time_callback, mock_walk_time_callback
 ):
     # Testing that the optimizer picks North Station because Line 1 connects it to Center Station
-    origin_stop, target_stop, total_time = navigator.find_optimal_route(
+    origin_stop, target_stop, chosen_line, total_time = navigator.find_optimal_route(
         origin_coords=(0.9, 0.0),
         dest_coords=(0.0, 0.1),
         routes_cache=mock_routes_cache,
@@ -85,7 +85,7 @@ def test_optimizer_selects_valid_connected_target(
     navigator, mock_routes_cache, mock_bus_time_callback, mock_walk_time_callback
 ):
     # Testing the destination side of the connected route
-    origin_stop, target_stop, total_time = navigator.find_optimal_route(
+    origin_stop, target_stop, chosen_line, total_time = navigator.find_optimal_route(
         origin_coords=(0.9, 0.0),
         dest_coords=(0.0, 0.1),
         routes_cache=mock_routes_cache,
@@ -100,7 +100,7 @@ def test_optimizer_ignores_unconnected_stops(
     navigator, mock_routes_cache, mock_bus_time_callback, mock_walk_time_callback
 ):
     # Testing that East Station is ignored because no bus goes from East to Center
-    origin_stop, target_stop, total_time = navigator.find_optimal_route(
+    origin_stop, target_stop, chosen_line, total_time = navigator.find_optimal_route(
         origin_coords=(0.1, 0.9),
         dest_coords=(0.0, 0.1),
         routes_cache=mock_routes_cache,

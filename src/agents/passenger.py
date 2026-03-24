@@ -103,7 +103,7 @@ class PassengerGenerator:
         )
 
         # Prevent broken agents from spawning
-        if origin_stop is None or target_stop is None:
+        if origin_stop is None or target_stop is None or chosen_line is None:
             raise ValueError("No viable route found for passenger.")
 
         return PassengerAgent(
@@ -112,6 +112,7 @@ class PassengerGenerator:
             destination=destination,
             origin_stop=origin_stop,
             target_stop=target_stop,
+            chosen_line=chosen_line,
             walking_time_to_stop=0 
         )
 

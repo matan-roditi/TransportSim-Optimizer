@@ -117,7 +117,29 @@ class PassengerGenerator:
         )
 
 
-def find_optimal_route(
+class PassengerNavigator:
+    """
+    Acts as the routing brain for passengers.
+    Finds the most optimal stops and transit line based on geographic distance.
+    """
+
+    def __init__(self, stops: Dict[str, Tuple[float, float]]):
+        self.stops = stops
+
+    def get_closest_stops(self, lat: float, lon: float, count: int = 5) -> List[str]:
+        """
+        Calculates the straight-line distance to all known stops.
+        Returns the names of the closest stops sorted by distance.
+        """
+        distances = []
+        for stop_name, coords in self.stops.items():
+            stop_lat, stop_lon = coords
+            dist = math.hypot(lat - stop_lat, lon - stop_lon)
+            distances.append((dist, stop_name))
+        distances.sort(key=lambda x: x[0])
+        return [stop_name for dist, stop_name in distances[:count]]
+
+    def find_optimal_route(
         self,
         origin_coords: Tuple[float, float],
         dest_coords: Tuple[float, float],

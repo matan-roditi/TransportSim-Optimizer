@@ -36,7 +36,8 @@ class PassengerGenerator:
         navigator: PassengerNavigator,
         routes_cache: Dict[str, List[str]],
         get_bus_time: Callable[[str, str], int],
-        get_walk_time: Callable[[Tuple[float, float], Tuple[float, float]], int]
+        get_walk_time: Callable[[Tuple[float, float], Tuple[float, float]], int],
+        llm_schedule: Optional[List[Dict[str, Any]]] = None
     ):
         self.neighborhoods = neighborhoods
         self.neighborhood_names = list(neighborhoods.keys())
@@ -46,29 +47,47 @@ class PassengerGenerator:
         self.routes_cache = routes_cache
         self.get_bus_time = get_bus_time
         self.get_walk_time = get_walk_time
+        self.llm_schedule: List[Dict[str, Any]] = llm_schedule or []
 
-    def generate_passenger(self) -> PassengerAgent:
+    def generate_passengers_for_time(self, current_time_str: str) -> List[PassengerAgent]:
         """
-        Creates a passenger by selecting random start and end bounds based on weights.
+        Generates passengers whose departure time matches the current simulation time.
+        Driven by the LLM demand schedule loaded at startup.
+        """
+        if not self.llm_schedule:
+            return []
+
+        # Look for the exact key we specified in the LLM prompt
+        matching = [entry for entry in self.llm_schedule if entry.get("departing_time") == current_time_str]
+        
+        passengers = []
+        for entry in matching:
+            origin = entry.get("origin_neighborhood")
+            dest = entry.get("destination_neighborhood")
+            
+            # Ensure the LLM didn't hallucinate missing data before attempting to route
+            if origin and dest:
+                try:
+                    # Pass the AI's requested neighborhoods into the spawner
+                    passengers.append(self.generate_passenger(origin, dest))
+                except ValueError:
+                    logger.warning(f"Could not route scheduled passenger from {origin} to {dest} at {current_time_str}")
+                except KeyError:
+                    logger.warning(f"LLM hallucinated an unknown neighborhood: {origin} or {dest}")
+                    
+        return passengers
+
+    def generate_passenger(self, origin_name: str, dest_name: str) -> PassengerAgent:
+        """
+        Creates a passenger by selecting random coordinates within the specifically requested bounds.
         Calculates the optimal multimodal route using the passenger brain.
         """
-        # Select random origin neighborhood and coordinates
-        selected_origin_name = random.choices(
-            self.neighborhood_names, 
-            weights=self.weights, 
-            k=1
-        )[0]
-        origin_bounds = self.neighborhoods[selected_origin_name]["bounds"]
+        # Look up the GPS bounding boxes for the requested neighborhoods
+        origin_bounds = self.neighborhoods[origin_name]["bounds"]
         lat = random.uniform(origin_bounds["lat"][0], origin_bounds["lat"][1])
         lon = random.uniform(origin_bounds["lon"][0], origin_bounds["lon"][1])
         
-        # Select random destination neighborhood and coordinates
-        selected_dest_name = random.choices(
-            self.neighborhood_names, 
-            weights=self.weights, 
-            k=1
-        )[0]
-        dest_bounds = self.neighborhoods[selected_dest_name]["bounds"]
+        dest_bounds = self.neighborhoods[dest_name]["bounds"]
         dest_lat = random.uniform(dest_bounds["lat"][0], dest_bounds["lat"][1])
         dest_lon = random.uniform(dest_bounds["lon"][0], dest_bounds["lon"][1])
         destination = (dest_lat, dest_lon)

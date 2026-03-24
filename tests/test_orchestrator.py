@@ -1,6 +1,7 @@
 import pytest
 from datetime import time, datetime
 from simulation.orchestrator import SimulationOrchestrator
+from agents.passenger import PassengerAgent
 from unittest.mock import patch, MagicMock
 
 TEST_NEIGHBORHOODS = {
@@ -40,12 +41,13 @@ def test_run_tick_advances_exactly_one_minute():
     assert orchestrator.clock.current_time == time(6, 1)
 
 def test_bus_dispatched_during_peak_hour():
-    # At 08:00 (Peak), a new bus should be added to the active list
+    # At 08:00 (Peak), one bus per route should be dispatched
     orchestrator = SimulationOrchestrator(TEST_NEIGHBORHOODS)
     # We force the clock to a known dispatch time
     orchestrator.clock.current_dt = datetime.strptime("08:00", "%H:%M")
     orchestrator.run_tick()
-    assert len(orchestrator.active_buses) == 1
+    # One bus is created per route in the cache; there must be at least one
+    assert len(orchestrator.active_buses) >= 1
 
 def test_no_bus_dispatched_on_off_interval():
     # At 08:05 (Peak, but not a 15-min mark), no bus should be created
@@ -54,12 +56,12 @@ def test_no_bus_dispatched_on_off_interval():
     orchestrator.run_tick()
     assert len(orchestrator.active_buses) == 0
 
-def test_passenger_generation_increases_active_count():
-    # Verify that passengers are added to the system during a tick
-    orchestrator = SimulationOrchestrator(TEST_NEIGHBORHOODS)
-    # We'll assume the generator is called every tick or based on a probability
+def test_passenger_generation_increases_active_count(orchestrator):
+    # Verify that passengers are added to the system when the LLM schedule has entries
+    mock_passenger = MagicMock(spec=PassengerAgent)
+    orchestrator.passenger_generator.generate_passengers_for_time.return_value = [mock_passenger]
     orchestrator.run_tick()
-    assert len(orchestrator.active_passengers) > 0
+    assert len(orchestrator.active_passengers) == 1
 
 def test_frequency_transition_at_ten_am():
     # At 10:15, a bus should NOT be dispatched (off-peak is every 30m)

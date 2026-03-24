@@ -14,13 +14,14 @@ logger = logging.getLogger(__name__)
 class PassengerAgent:
     """
     Represents a single commuter in the simulation.
-    Stores current GPS coordinates and the target destination.
+    Stores current GPS coordinates, target destination, and chosen transit details.
     """
     lat: float
     lon: float
     destination: Tuple[float, float]
     origin_stop: str
     target_stop: str
+    chosen_line: str
     walking_time_to_stop: int = 0
 
 

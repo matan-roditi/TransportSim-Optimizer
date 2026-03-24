@@ -34,7 +34,7 @@ class BusAgent:
 
         logger.info(f"Bus {bus_id} created for Line {self.navigator.line_id}")
 
-    def process_boarding(self, waiting_passengers: List[PassengerAgent]) -> List[PassengerAgent]:
+    def process_boarding(self, waiting_passengers: List['PassengerAgent']) -> List['PassengerAgent']:
         """
         Filters waiting passengers and boards them up to the capacity limit.
         Returns the list of passengers who remain unboarded.
@@ -47,8 +47,11 @@ class BusAgent:
         for passenger in waiting_passengers:
             is_at_correct_stop = passenger.origin_stop == current_stop
             goes_to_target = self.navigator.reaches_stop(passenger.target_stop)
+            
+            # Ensure the passenger is specifically waiting for this bus line
+            is_waiting_for_this_line = passenger.chosen_line == self.navigator.line_id
 
-            if is_at_correct_stop and goes_to_target:
+            if is_at_correct_stop and goes_to_target and is_waiting_for_this_line:
                 ready_to_board.append(passenger)
             else:
                 passengers_left_behind.append(passenger)

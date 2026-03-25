@@ -39,9 +39,16 @@ def run_simulation():
     while not orchestrator.clock.is_finished():
         orchestrator.run_tick()
 
-    logger.info("--- Simulation Complete ---")
-    logger.info(f"Total Buses Dispatched: {len(orchestrator.active_buses)}")
-    logger.info(f"Total Passengers Deployed: {len(orchestrator.active_passengers)}")
+    stats = orchestrator.get_stats()
+    logger.info("=" * 55)
+    logger.info("  SIMULATION COMPLETE — END OF SERVICE DAY SUMMARY")
+    logger.info("=" * 55)
+    logger.info(f"  Buses dispatched    : {stats['buses_dispatched']}")
+    logger.info(f"  Passengers deployed : {stats['passengers_deployed']}")
+    logger.info(f"  Passengers served   : {stats['passengers_served']}")
+    logger.info(f"  Passengers unserved : {stats['passengers_unserved']}")
+    logger.info(f"  Service rate        : {stats['service_rate_pct']}%")
+    logger.info("=" * 55)
 
 
 if __name__ == "__main__":

@@ -107,7 +107,7 @@ class SimulationOrchestrator:
             ) as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
-                        SELECT s1.stop_name, s2.stop_name, tt.seconds
+                        SELECT s1.name, s2.name, tt.seconds
                         FROM travel_times tt
                         JOIN edges e  ON e.edge_id    = tt.edge_id
                         JOIN stops s1 ON s1.stop_id   = e.from_stop_id
@@ -256,8 +256,8 @@ class SimulationOrchestrator:
                 password=os.environ["PG_PASSWORD"]
             ) as conn:
                 with conn.cursor() as cur:
-                    # Adjust 'stop_name', 'stop_lat', and 'stop_lon' to match your actual table columns
-                    cur.execute("SELECT stop_name, stop_lat, stop_lon FROM stops")
+                    # Column names match the schema defined in top20_build_edges.py: name, lat, lon
+                    cur.execute("SELECT name, lat, lon FROM stops")
                     for stop_name, lat, lon in cur.fetchall():
                         db_stops[stop_name] = (float(lat), float(lon))
             

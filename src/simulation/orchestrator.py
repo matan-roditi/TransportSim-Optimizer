@@ -35,7 +35,7 @@ class SimulationOrchestrator:
 
         # Initialize the passenger routing brain using the real stops from the JSON
         # We generate coordinates for the real stop names found in your routes
-        stop_coords = self._generate_stop_coordinates()
+        stop_coords = self._load_stop_coordinates_from_db()
         
         self.navigator = PassengerNavigator(stops=stop_coords)
 
@@ -236,21 +236,76 @@ class SimulationOrchestrator:
 
         return []
 
-    def _generate_stop_coordinates(self) -> Dict[str, Tuple[float, float]]:
-        """Maps real stop names to generic coordinates so the navigator can function."""
+    def _load_stop_coordinates_from_db(self) -> Dict[str, Tuple[float, float]]:
+        """
+        Loads real stop coordinates from the PostgreSQL database.
+        Falls back to synthetic coordinates if the connection fails or data is missing.
+        """
+        required_env_vars = ["PG_HOST", "PG_PORT", "PG_DB", "PG_USER", "PG_PASSWORD"]
+        if not all(os.environ.get(var) for var in required_env_vars):
+            logger.warning("PostgreSQL credentials not set. Falling back to synthetic coordinates.")
+            return self._generate_synthetic_coordinates()
+
+        db_stops: Dict[str, Tuple[float, float]] = {}
+        try:
+            with psycopg2.connect(
+                host=os.environ["PG_HOST"],
+                port=os.environ["PG_PORT"],
+                dbname=os.environ["PG_DB"],
+                user=os.environ["PG_USER"],
+                password=os.environ["PG_PASSWORD"]
+            ) as conn:
+                with conn.cursor() as cur:
+                    # Adjust 'stop_name', 'stop_lat', and 'stop_lon' to match your actual table columns
+                    cur.execute("SELECT stop_name, stop_lat, stop_lon FROM stops")
+                    for stop_name, lat, lon in cur.fetchall():
+                        db_stops[stop_name] = (float(lat), float(lon))
+            
+            logger.info(f"Loaded {len(db_stops)} stop coordinates from database.")
+        except Exception as e:
+            logger.error(f"Failed to load coordinates from DB: {e}. Falling back to synthetic.")
+            return self._generate_synthetic_coordinates()
+
+        # Verify that all stops needed by the routes exist in the database results
+        # Use synthetic coordinates for any missing stops to prevent routing crashes
+        final_stops = {}
+        missing_stops_count = 0
+        base_lat = 32.1650
+        base_lon = 34.8400
+        offset_step = 0.002
+        current_offset = 0.0
+
+        for route in self.routes_cache.values():
+            for stop in route:
+                if stop not in final_stops:
+                    if stop in db_stops:
+                        final_stops[stop] = db_stops[stop]
+                    else:
+                        missing_stops_count += 1
+                        final_stops[stop] = (base_lat + current_offset, base_lon + current_offset)
+                        current_offset += offset_step
+
+        if missing_stops_count > 0:
+            logger.warning(f"Missing {missing_stops_count} stops in DB. Used synthetic coordinates for them.")
+
+        return final_stops
+
+    def _generate_synthetic_coordinates(self) -> Dict[str, Tuple[float, float]]:
+        """
+        Generates fallback coordinates by applying a small offset to each stop.
+        """
         stops = {}
+        base_lat = 32.1650
+        base_lon = 34.8400
+        offset_step = 0.002
+        current_offset = 0.0
+
         for route in self.routes_cache.values():
             for stop in route:
                 if stop not in stops:
-                    # Default center of Herzliya coordinate for real stop names
-                    stops[stop] = (32.1650, 34.8400)
-
-        unique_coords = set(stops.values())
-        if len(unique_coords) == 1:
-            logger.warning(
-                f"⚠️  All {len(stops)} stops share the SAME coordinate {next(iter(unique_coords))}. "
-                "Passenger routing will be unreliable — provide real GPS coordinates per stop."
-            )
+                    stops[stop] = (base_lat + current_offset, base_lon + current_offset)
+                    current_offset += offset_step
+        
         return stops
 
     def is_running(self) -> bool:

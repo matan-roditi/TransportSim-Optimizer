@@ -5,9 +5,14 @@ import subprocess
 from simulation.orchestrator import SimulationOrchestrator
 from simulation.config import HERZLIYA_NEIGHBORHOODS
 
+# Configure logging to write to both a file and the console
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("simulation_output.log", mode="w", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
 logger = logging.getLogger(__name__)
 

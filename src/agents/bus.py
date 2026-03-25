@@ -106,7 +106,7 @@ class BusAgent:
             return
 
         # If ticks_until_arrival is 0, the bus has arrived at a stop.
-        current_stop = self.navigator.get_current_stop()
+        # current_stop = self.navigator.get_current_stop()
         # logger.info(f"Bus {self.bus_id} has arrived at stop: {current_stop}")
 
         # Phase 2 (Boarding Logic) will go here later!

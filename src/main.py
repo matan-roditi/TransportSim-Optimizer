@@ -2,8 +2,11 @@ import logging
 import os
 import sys
 import subprocess
+from dotenv import load_dotenv
 from simulation.orchestrator import SimulationOrchestrator
 from simulation.config import HERZLIYA_NEIGHBORHOODS
+
+load_dotenv()
 
 # Configure logging to write to both a file and the console
 logging.basicConfig(

@@ -184,7 +184,7 @@ class RouteNavigator:
         """Moves the internal pointer to the next stop"""
         if self.current_index + 1 < len(self.stops):
             self.current_index += 1
-            logger.info(f"Line {self.line_id}: Advancing to stop {self.get_current_stop()}")
+           # logger.info(f"Line {self.line_id}: Advancing to stop {self.get_current_stop()}")
         else:
             logger.warning(f"Line {self.line_id}: Reached the final stop")
 

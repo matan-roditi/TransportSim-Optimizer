@@ -31,6 +31,7 @@ class BusAgent:
         # state variables to manage movement
         self.is_moving: bool = False
         self.ticks_until_arrival: int = 0
+        self._route_complete: bool = False
 
         logger.info(f"Bus {bus_id} created for Line {self.navigator.line_id}")
 
@@ -128,9 +129,14 @@ class BusAgent:
             logger.debug(f"Bus {self.bus_id} departing for {next_stop} (ETA: {self.ticks_until_arrival} mins)")
         else:
             # The bus has finished its route
-            self.is_moving = False
-            logger.info(f"Bus {self.bus_id} has completed its route at {self.navigator.get_current_stop()} "
-                        f"(carried passengers across {self.navigator.current_index} stop(s))")
+            if not self._route_complete:
+                self._route_complete = True
+                self.is_moving = False
+                logger.info(
+                    f"Bus {self.bus_id} has completed its route at "
+                    f"{self.navigator.get_current_stop()} "
+                    f"(carried passengers across {self.navigator.current_index} stop(s))"
+                )
 
     def alight_passengers(self) -> List[PassengerAgent]:
         """

@@ -253,6 +253,10 @@ class SimulationOrchestrator:
             )
         return stops
 
+    def is_running(self) -> bool:
+        """Returns True if the simulation clock has not yet reached the end time."""
+        return not self.clock.is_finished()
+
     def get_stats(self) -> Dict[str, Any]:
         """Returns a summary of key simulation statistics."""
         unserved = len(self.active_passengers)

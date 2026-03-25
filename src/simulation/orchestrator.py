@@ -65,15 +65,23 @@ class SimulationOrchestrator:
     def _load_routes(self, file_path: str) -> Dict[str, List[str]]:
         """
         Reads the JSON file and parses the routes into a dictionary.
-        Maps the line name to its corresponding list of stops.
+        Automatically generates a reverse route for each line loaded.
         """
         loaded_routes = {}
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 for line in data:
-                    loaded_routes[line["name"]] = line.get("stops", [])
-            logger.info(f"Successfully loaded {len(loaded_routes)} routes from {file_path}")
+                    line_name = line["name"]
+                    stops = line.get("stops", [])
+                    
+                    loaded_routes[line_name] = stops
+                    
+                    if len(stops) > 1:
+                        reverse_name = f"{line_name} Reverse"
+                        loaded_routes[reverse_name] = list(reversed(stops))
+                        
+            logger.info(f"Successfully loaded {len(loaded_routes)} routes (including reverse directions) from {file_path}")
         except FileNotFoundError:
             logger.error(f"Route file not found at {file_path}")
         except json.JSONDecodeError as e:

@@ -55,6 +55,11 @@ class SimulationOrchestrator:
         self.active_buses: List[BusAgent] = []
         self.active_passengers: List[PassengerAgent] = []
 
+        # Ridership counters for the end-of-simulation summary
+        self._total_passengers_served: int = 0
+        self._total_passengers_deployed: int = 0
+        self._total_buses_dispatched: int = 0
+
         logger.info("Simulation Orchestrator initialized for Herzliya")
 
     def _load_routes(self, file_path: str) -> Dict[str, List[str]]:
@@ -133,6 +138,7 @@ class SimulationOrchestrator:
         current_time_str = current_time.strftime("%H:%M")
 
         if self.dispatcher.should_dispatch(current_time):
+            dispatched_this_tick = 0
             for target_line, line_stops in self.routes_cache.items():
                 if not line_stops:
                     continue
@@ -140,12 +146,19 @@ class SimulationOrchestrator:
                 route_data = {"line_id": target_line, "stops": line_stops}
                 new_bus = BusAgent(bus_id=bus_id, route_data=route_data)
                 self.active_buses.append(new_bus)
+                self._total_buses_dispatched += 1
+                dispatched_this_tick += 1
                 logger.info(f"[{current_time_str}] 🚌 {bus_id} departing empty from {line_stops[0]} on {target_line}")
 
         new_passengers = self.passenger_generator.generate_passengers_for_time(current_time_str)
         if new_passengers:
             self.active_passengers.extend(new_passengers)
-            logger.info(f"[{current_time_str}] 🧍 Deployed {len(new_passengers)} scheduled passengers.")
+            self._total_passengers_deployed += len(new_passengers)
+            total_waiting = len(self.active_passengers)
+            logger.info(
+                f"[{current_time_str}] 🧍 Deployed {len(new_passengers)} scheduled passenger(s). "
+                f"Total currently waiting: {total_waiting}"
+            )
 
         for bus in self.active_buses:
             current_stop = bus.navigator.get_current_stop()
@@ -162,8 +175,14 @@ class SimulationOrchestrator:
                 boarded_count = waiting_passengers_before - len(self.active_passengers)
                 current_load = len(getattr(bus, 'passengers', []))
 
+                self._total_passengers_served += alighted_count
+
                 if alighted_count > 0 or boarded_count > 0:
-                    logger.info(f"[{current_time_str}] 🚏 {bus.bus_id} at {current_stop} | Left: {alighted_count} | Boarded: {boarded_count} | Total Inside: {current_load}")
+                    logger.info(
+                        f"[{current_time_str}] 🚏 {bus.bus_id} at {current_stop} "
+                        f"| Left: {alighted_count} | Boarded: {boarded_count} "
+                        f"| On-board: {current_load} | Still waiting: {len(self.active_passengers)}"
+                    )
 
             travel_time = 0
             if bus.ticks_until_arrival == 0 and next_stop:
@@ -225,4 +244,25 @@ class SimulationOrchestrator:
                 if stop not in stops:
                     # Default center of Herzliya coordinate for real stop names
                     stops[stop] = (32.1650, 34.8400)
+
+        unique_coords = set(stops.values())
+        if len(unique_coords) == 1:
+            logger.warning(
+                f"⚠️  All {len(stops)} stops share the SAME coordinate {next(iter(unique_coords))}. "
+                "Passenger routing will be unreliable — provide real GPS coordinates per stop."
+            )
         return stops
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Returns a summary of key simulation statistics."""
+        unserved = len(self.active_passengers)
+        return {
+            "buses_dispatched": self._total_buses_dispatched,
+            "passengers_deployed": self._total_passengers_deployed,
+            "passengers_served": self._total_passengers_served,
+            "passengers_unserved": unserved,
+            "service_rate_pct": (
+                round(self._total_passengers_served / self._total_passengers_deployed * 100, 1)
+                if self._total_passengers_deployed > 0 else 0.0
+            ),
+        }

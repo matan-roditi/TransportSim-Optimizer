@@ -12,8 +12,9 @@ python_version = "3.10"
 # Require type definitions in all functions
 warn_return_any = true
 warn_unused_configs = true
-
 ignore_missing_imports = true
+mypath = "src"
+explicit_package_bases = true
 
 [tool.pytest.ini_options]
 # Define the directory where tests are located

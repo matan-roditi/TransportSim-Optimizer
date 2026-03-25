@@ -68,6 +68,12 @@ class BusAgent:
         if boarded_count > 0:
             logger.info(f"Bus {self.bus_id} boarded {boarded_count} passengers at {current_stop}")
 
+        if unboarded_due_to_capacity:
+            logger.info(
+                f"Bus {self.bus_id} is FULL at {current_stop} — "
+                f"{len(unboarded_due_to_capacity)} passenger(s) left behind due to capacity"
+            )
+
         return passengers_left_behind
 
     def calculate_stop_duration(self, boarding_count: int, exiting_count: int = 0) -> int:
@@ -123,7 +129,8 @@ class BusAgent:
         else:
             # The bus has finished its route
             self.is_moving = False
-            # logger.info(f"Bus {self.bus_id} has finished its route.")
+            logger.info(f"Bus {self.bus_id} has completed its route at {self.navigator.get_current_stop()} "
+                        f"(carried passengers across {self.navigator.current_index} stop(s))")
 
     def alight_passengers(self) -> List[PassengerAgent]:
         """

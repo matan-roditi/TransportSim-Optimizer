@@ -19,6 +19,8 @@ class BusAgent:
     def __init__(self, bus_id: str, route_data: Dict, capacity: int = 50) -> None:
         # Unique identifier for the bus
         self.bus_id = bus_id
+        # Save the route data for later for reverse dispatching in orchestrator
+        self.route_data = route_data
         # Maximum passenger capacity
         self.capacity = capacity
         # We now specify that this list will only hold PassengerAgent objects

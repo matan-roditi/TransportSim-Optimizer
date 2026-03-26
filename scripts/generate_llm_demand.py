@@ -31,7 +31,7 @@ def generate_herzliya_demand_matrix() -> None:
     You are an expert urban mobility data generator modeling the daily commute patterns of Herzliya, Israel. 
 
     Generate a realistic travel demand matrix for an average weekday from 06:00 to 22:00. 
-    Scale: 1 passenger object in your output represents exactly 500 real citizens. 
+    Scale: 1 passenger object in your output represents exactly 200 real citizens of Herzliya(about 500 passengers representing the 100,000 population). 
     Consider Herzliya's specific geography, such as morning commutes toward the tech hubs in Pituach and evening returns to residential zones.
 
     Each passenger object must include:

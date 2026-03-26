@@ -231,7 +231,6 @@ def test_reverse_bus_sets_safety_flag(finishing_bus, orchestrator):
     }
     orchestrator.active_buses = [finishing_bus]
     
-    current_line_id = finishing_bus.route_data.get("line_id", "")
     next_stop = finishing_bus.navigator.get_next_stop()
     
     if not next_stop and not finishing_bus.reverse_dispatched:

@@ -148,15 +148,21 @@ class SimulationOrchestrator:
         if self.dispatcher.should_dispatch(current_time):
             dispatched_this_tick = 0
             for target_line, line_stops in self.routes_cache.items():
+
+                # Skip auto-dispatching for reverse lines so they only spawn when a forward bus finishes
+                if target_line.endswith(" Reverse"):
+                    continue
+
                 if not line_stops:
                     continue
+
                 bus_id = f"Bus_{target_line.replace(' ', '')}_{current_time.strftime('%H%M')}"
                 route_data = {"line_id": target_line, "stops": line_stops}
                 new_bus = BusAgent(bus_id=bus_id, route_data=route_data)
                 self.active_buses.append(new_bus)
                 self._total_buses_dispatched += 1
                 dispatched_this_tick += 1
-                logger.info(f"[{current_time_str}] 🚌 {bus_id} departing empty from {line_stops[0]} on {target_line}")
+                logger.info(f"[{current_time_str}] {bus_id} departing empty from {line_stops[0]} on {target_line}")
 
         new_passengers = self.passenger_generator.generate_passengers_for_time(current_time_str)
         if new_passengers:
@@ -164,9 +170,13 @@ class SimulationOrchestrator:
             self._total_passengers_deployed += len(new_passengers)
             total_waiting = len(self.active_passengers)
             logger.info(
-                f"[{current_time_str}] 🧍 Deployed {len(new_passengers)} scheduled passenger(s). "
+                f"[{current_time_str}] Deployed {len(new_passengers)} scheduled passenger(s). "
                 f"Total currently waiting: {total_waiting}"
             )
+
+        # Temporary list to hold newly spawned reverse buses
+        # This prevents modifying self.active_buses while we are iterating over it
+        new_reverse_buses = []
 
         for bus in self.active_buses:
             current_stop = bus.navigator.get_current_stop()
@@ -187,15 +197,41 @@ class SimulationOrchestrator:
 
                 if alighted_count > 0 or boarded_count > 0:
                     logger.info(
-                        f"[{current_time_str}] 🚏 {bus.bus_id} at {current_stop} "
+                        f"[{current_time_str}] {bus.bus_id} at {current_stop} "
                         f"| Left: {alighted_count} | Boarded: {boarded_count} "
                         f"| On-board: {current_load} | Still waiting: {len(self.active_passengers)}"
                     )
+
+            # Check if the bus has reached the end of its route
+            if not next_stop and not getattr(bus, 'reverse_dispatched', False):
+                # Apply the safety flag to prevent infinite dispatching loops
+                bus.reverse_dispatched = True
+                current_line_id = bus.route_data.get("line_id", "")
+                
+                # Only dispatch a reverse bus if the finishing bus was on a forward line
+                if not current_line_id.endswith(" Reverse"):
+                    reverse_line = f"{current_line_id} Reverse"
+                    
+                    if reverse_line in self.routes_cache:
+                        reverse_stops = self.routes_cache[reverse_line]
+                        new_bus_id = f"Bus_{reverse_line.replace(' ', '')}_{current_time.strftime('%H%M')}"
+                        
+                        new_reverse_bus = BusAgent(
+                            bus_id=new_bus_id, 
+                            route_data={"line_id": reverse_line, "stops": reverse_stops}
+                        )
+                        new_reverse_buses.append(new_reverse_bus)
+                        self._total_buses_dispatched += 1
+                        logger.info(f"[{current_time_str}] {bus.bus_id} completed forward route. Dispatching {new_bus_id} on {reverse_line}")
 
             travel_time = 0
             if bus.ticks_until_arrival == 0 and next_stop:
                 travel_time = self.get_travel_time_minutes(current_stop, next_stop)
             bus.tick(travel_time_to_next=travel_time)
+
+        # Append all newly spawned reverse buses to the fleet so they begin moving on the next tick
+        if new_reverse_buses:
+            self.active_buses.extend(new_reverse_buses)
 
         self.clock.tick()
 

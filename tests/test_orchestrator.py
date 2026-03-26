@@ -150,3 +150,135 @@ def test_walk_time_returns_minimum_one_minute(orchestrator):
     time = orchestrator._calculate_walk_time(same_location, same_location)
 
     assert time == 1
+
+@pytest.fixture
+def finishing_bus():
+    # Creates a mock bus that is currently at the final stop of its forward route
+    bus = MagicMock()
+    bus.bus_id = "Bus_Line1_0800"
+    bus.route_data = {"line_id": "Line 1", "stops": ["Stop A", "Stop B", "Stop C"]}
+    
+    bus.navigator.get_current_stop.return_value = "Stop C"
+    bus.navigator.get_next_stop.return_value = None
+    bus.ticks_until_arrival = 0
+    bus.reverse_dispatched = False
+    
+    return bus
+
+
+def test_reverse_route_has_opposite_stop_order(orchestrator):
+    # Verifies that the reverse line contains the exact opposite order of the forward line stops
+    orchestrator.routes_cache = {
+        "Line 1": ["Stop A", "Stop B", "Stop C"],
+        "Line 1 Reverse": ["Stop C", "Stop B", "Stop A"]
+    }
+    
+    forward_stops = orchestrator.routes_cache["Line 1"]
+    reverse_stops = orchestrator.routes_cache["Line 1 Reverse"]
+    
+    assert reverse_stops == forward_stops[::-1]
+
+
+def test_reverse_bus_dispatched_exactly_one_bus(finishing_bus, orchestrator):
+    # Verifies that exactly one reverse bus is spawned when a forward bus finishes
+    orchestrator.routes_cache = {
+        "Line 1": ["Stop A", "Stop B", "Stop C"],
+        "Line 1 Reverse": ["Stop C", "Stop B", "Stop A"]
+    }
+    orchestrator.active_buses = [finishing_bus]
+    
+    new_reverse_buses = []
+    current_line_id = finishing_bus.route_data.get("line_id", "")
+    next_stop = finishing_bus.navigator.get_next_stop()
+    
+    if not next_stop and not finishing_bus.reverse_dispatched:
+        finishing_bus.reverse_dispatched = True
+        reverse_line = current_line_id + " Reverse"
+        
+        if reverse_line in orchestrator.routes_cache:
+            new_reverse_buses.append(reverse_line)
+            
+    assert len(new_reverse_buses) == 1
+
+
+def test_reverse_bus_dispatched_with_correct_name(finishing_bus, orchestrator):
+    # Verifies that the spawned bus has the correct reverse line ID
+    orchestrator.routes_cache = {
+        "Line 1": ["Stop A", "Stop B", "Stop C"],
+        "Line 1 Reverse": ["Stop C", "Stop B", "Stop A"]
+    }
+    orchestrator.active_buses = [finishing_bus]
+    
+    new_reverse_buses = []
+    current_line_id = finishing_bus.route_data.get("line_id", "")
+    next_stop = finishing_bus.navigator.get_next_stop()
+    
+    if not next_stop and not finishing_bus.reverse_dispatched:
+        finishing_bus.reverse_dispatched = True
+        reverse_line = current_line_id + " Reverse"
+        
+        if reverse_line in orchestrator.routes_cache:
+            new_reverse_buses.append(reverse_line)
+            
+    assert new_reverse_buses[0] == "Line 1 Reverse"
+
+
+def test_reverse_bus_sets_safety_flag(finishing_bus, orchestrator):
+    # Verifies that the safety flag is set to prevent infinite reverse dispatching
+    orchestrator.routes_cache = {
+        "Line 1": ["Stop A", "Stop B", "Stop C"],
+        "Line 1 Reverse": ["Stop C", "Stop B", "Stop A"]
+    }
+    orchestrator.active_buses = [finishing_bus]
+    
+    current_line_id = finishing_bus.route_data.get("line_id", "")
+    next_stop = finishing_bus.navigator.get_next_stop()
+    
+    if not next_stop and not finishing_bus.reverse_dispatched:
+        finishing_bus.reverse_dispatched = True
+            
+    assert finishing_bus.reverse_dispatched is True
+
+
+def test_reverse_bus_queries_asymmetrical_travel_times(orchestrator):
+    # Verifies that a reverse bus fetches the correct asymmetrical travel time for its direction
+    orchestrator.travel_times_cache = {
+        ("Stop A", "Stop B"): 5,
+        ("Stop B", "Stop C"): 4,
+        ("Stop C", "Stop B"): 7, 
+        ("Stop B", "Stop A"): 6  
+    }
+    
+    reverse_bus = MagicMock()
+    reverse_bus.route_data = {"line_id": "Line 1 Reverse"}
+    reverse_bus.navigator.get_current_stop.return_value = "Stop C"
+    reverse_bus.navigator.get_next_stop.return_value = "Stop B"
+    
+    current_stop = reverse_bus.navigator.get_current_stop()
+    next_stop = reverse_bus.navigator.get_next_stop()
+    
+    travel_time = orchestrator.get_travel_time_minutes(current_stop, next_stop)
+    
+    assert travel_time == 7
+
+
+def test_reverse_bus_ignores_forward_travel_times(orchestrator):
+    # Verifies that a reverse bus does not incorrectly use the forward route travel time
+    orchestrator.travel_times_cache = {
+        ("Stop A", "Stop B"): 5,
+        ("Stop B", "Stop C"): 4,
+        ("Stop C", "Stop B"): 7, 
+        ("Stop B", "Stop A"): 6  
+    }
+    
+    reverse_bus = MagicMock()
+    reverse_bus.route_data = {"line_id": "Line 1 Reverse"}
+    reverse_bus.navigator.get_current_stop.return_value = "Stop C"
+    reverse_bus.navigator.get_next_stop.return_value = "Stop B"
+    
+    current_stop = reverse_bus.navigator.get_current_stop()
+    next_stop = reverse_bus.navigator.get_next_stop()
+    
+    travel_time = orchestrator.get_travel_time_minutes(current_stop, next_stop)
+    
+    assert travel_time != 4

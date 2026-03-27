@@ -42,7 +42,7 @@ class Dispatcher:
         if period != self._current_period:
             self._current_period = period
             logger.info(
-                f"[{current_time.strftime('%H:%M')}] 🗓️  Service period changed → {period}"
+                f"[{current_time.strftime('%H:%M')}]  Service period changed → {period}"
             )
 
         hour = current_time.hour

@@ -35,7 +35,7 @@ class BusAgent:
         self.ticks_until_arrival: int = 0
         self._route_complete: bool = False
 
-        logger.info(f"Bus {bus_id} created for Line {self.navigator.line_id}")
+        # logger.info(f"Bus {bus_id} created for Line {self.navigator.line_id}")
 
     def process_boarding(self, waiting_passengers: List['PassengerAgent']) -> List['PassengerAgent']:
         """

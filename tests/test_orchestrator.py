@@ -58,11 +58,19 @@ def test_no_bus_dispatched_on_off_interval():
     assert len(orchestrator.active_buses) == 0
 
 def test_passenger_generation_increases_active_count(orchestrator):
-    # Verify that passengers are added to the system when the LLM schedule has entries
-    mock_passenger = MagicMock(spec=PassengerAgent)
-    orchestrator.passenger_generator.generate_passengers_for_time.return_value = [mock_passenger]
-    orchestrator.run_tick()
-    assert len(orchestrator.active_passengers) == 1
+        # Verify that passengers are added to the system when the LLM schedule has entries
+        mock_passenger = MagicMock(spec=PassengerAgent)
+        
+        # Add dummy attributes so the orchestrator's deployment logger does not crash
+        mock_passenger.passenger_id = 1
+        mock_passenger.lat = 32.0
+        mock_passenger.lon = 34.0
+        mock_passenger.destination = (32.1, 34.1)
+        
+        orchestrator.passenger_generator.generate_passengers_for_time.return_value = [mock_passenger]
+        orchestrator.run_tick()
+        
+        assert len(orchestrator.active_passengers) == 1
 
 def test_frequency_transition_at_ten_am():
     # At 10:15, a bus should NOT be dispatched (off-peak is every 30m)
@@ -352,19 +360,21 @@ def test_bus_logs_continued_without_stopping_when_no_activity(orchestrator, capl
 
 
 def test_orchestrator_logs_individual_passenger_deployment(orchestrator, caplog):
-    # Verify the orchestrator emits the specific deployment log for each passenger
-    caplog.set_level(logging.INFO)
+        # Verify the orchestrator emits the specific deployment log for each passenger
+        caplog.set_level(logging.INFO)
 
-    mock_passenger = MagicMock(spec=PassengerAgent)
-    mock_passenger.passenger_id = 42
-    mock_passenger.lat = 32.1234
-    mock_passenger.lon = 34.5678
-    mock_passenger.destination = (32.9999, 34.1111)
+        mock_passenger = MagicMock(spec=PassengerAgent)
+        mock_passenger.passenger_id = 42
+        mock_passenger.lat = 32.1234
+        mock_passenger.lon = 34.5678
+        mock_passenger.destination = (32.9999, 34.1111)
 
-    orchestrator.passenger_generator.generate_passengers_for_time.return_value = [mock_passenger]
-    orchestrator.dispatcher.should_dispatch.return_value = False
+        orchestrator.passenger_generator.generate_passengers_for_time.return_value = [mock_passenger]
+        
+        # Overwrite the actual method with a MagicMock to silence the dispatcher
+        orchestrator.dispatcher.should_dispatch = MagicMock(return_value=False)
 
-    orchestrator.run_tick()
+        orchestrator.run_tick()
 
-    expected_log = "passenger #42 deployed with origin:(32.1234, 34.5678), dest:(32.9999, 34.1111)"
-    assert expected_log in caplog.text
+        expected_log = "passenger #42 deployed with origin:(32.1234, 34.5678), dest:(32.9999, 34.1111)"
+        assert expected_log in caplog.text

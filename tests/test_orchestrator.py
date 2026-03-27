@@ -349,3 +349,22 @@ def test_bus_logs_continued_without_stopping_when_no_activity(orchestrator, capl
     orchestrator.run_tick()
 
     assert "Bus_Line2_0800 at בית ספר תיכון ראשונים/הרב קוק | Left: 0 | Boarded: 0 | On-board: 0 | continued without stopping" in caplog.text
+
+
+def test_orchestrator_logs_individual_passenger_deployment(orchestrator, caplog):
+    # Verify the orchestrator emits the specific deployment log for each passenger
+    caplog.set_level(logging.INFO)
+
+    mock_passenger = MagicMock(spec=PassengerAgent)
+    mock_passenger.passenger_id = 42
+    mock_passenger.lat = 32.1234
+    mock_passenger.lon = 34.5678
+    mock_passenger.destination = (32.9999, 34.1111)
+
+    orchestrator.passenger_generator.generate_passengers_for_time.return_value = [mock_passenger]
+    orchestrator.dispatcher.should_dispatch.return_value = False
+
+    orchestrator.run_tick()
+
+    expected_log = "passenger #42 deployed with origin:(32.1234, 34.5678), dest:(32.9999, 34.1111)"
+    assert expected_log in caplog.text

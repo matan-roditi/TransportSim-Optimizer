@@ -22,8 +22,8 @@ def test_bus_boarding_limit_return_value():
     # Verify that process_boarding leaves 5 passengers unboarded when 55 arrive at a 50-seat bus
     bus = BusAgent(bus_id="Line_1", route_data=TEST_ROUTE_DATA, capacity=50)
     waiting = [
-        PassengerAgent(lat=0, lon=0, destination=(0, 0), origin_stop="Stop_A", target_stop="Stop_B", chosen_line="Line_1")
-        for _ in range(55)
+        PassengerAgent(passenger_id=i, lat=0, lon=0, destination=(0, 0), origin_stop="Stop_A", target_stop="Stop_B", chosen_line="Line_1")
+        for i in range(55)
     ]
     leftover = bus.process_boarding(waiting)
     assert len(leftover) == 5
@@ -32,8 +32,8 @@ def test_bus_boarding_limit_passenger_list():
     # Verify the bus strictly enforces the 50-passenger limit in its internal list
     bus = BusAgent(bus_id="Line_1", route_data=TEST_ROUTE_DATA, capacity=50)
     waiting = [
-        PassengerAgent(lat=0, lon=0, destination=(0, 0), origin_stop="Stop_A", target_stop="Stop_B", chosen_line="Line_1")
-        for _ in range(55)
+        PassengerAgent(passenger_id=i, lat=0, lon=0, destination=(0, 0), origin_stop="Stop_A", target_stop="Stop_B", chosen_line="Line_1")
+        for i in range(55)
     ]
     bus.process_boarding(waiting)
     assert len(bus.passengers) == 50
@@ -123,11 +123,11 @@ def bus_with_two_seats():
 
 @pytest.fixture
 def waiting_crowd():
-    """Provides a group of three passengers waiting at the starting stop."""
-    p_one = PassengerAgent(lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="End", chosen_line="Line A")
-    p_two = PassengerAgent(lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="End", chosen_line="Line A")
-    p_three = PassengerAgent(lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="End", chosen_line="Line A")
-    return [p_one, p_two, p_three]
+        """Provides a group of three passengers waiting at the starting stop."""
+        p_one = PassengerAgent(passenger_id=1, lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="End", chosen_line="Line A")
+        p_two = PassengerAgent(passenger_id=2, lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="End", chosen_line="Line A")
+        p_three = PassengerAgent(passenger_id=3, lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="End", chosen_line="Line A")
+        return [p_one, p_two, p_three]
 
 
 def test_bus_boards_passengers_up_to_capacity(bus_with_two_seats, waiting_crowd):
@@ -147,8 +147,8 @@ def test_bus_leaves_unboarded_passengers_in_queue(bus_with_two_seats, waiting_cr
 def test_bus_ignores_passengers_at_wrong_stop(bus_with_two_seats):
     # Testing that a passenger waiting at a different station is skipped
     wrong_stop_passenger = PassengerAgent(
-        lat=0, lon=0, destination=(0,0), origin_stop="Middle", target_stop="End", chosen_line="Line A"
-    )
+            passenger_id=1, lat=0, lon=0, destination=(0,0), origin_stop="Middle", target_stop="End", chosen_line="Line A"
+        )
     bus_with_two_seats.process_boarding([wrong_stop_passenger])
     
     assert len(bus_with_two_seats.passengers) == 0
@@ -157,8 +157,8 @@ def test_bus_ignores_passengers_at_wrong_stop(bus_with_two_seats):
 def test_bus_ignores_passengers_with_wrong_destination(bus_with_two_seats):
     # Testing that a passenger wanting to go to an off-route stop is rejected
     wrong_dest_passenger = PassengerAgent(
-        lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="OffRoute", chosen_line="Line A"
-    )
+            passenger_id=1, lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="OffRoute", chosen_line="Line A"
+        )
     bus_with_two_seats.process_boarding([wrong_dest_passenger])
     
     assert len(bus_with_two_seats.passengers) == 0
@@ -166,7 +166,7 @@ def test_bus_ignores_passengers_with_wrong_destination(bus_with_two_seats):
 def test_bus_alights_passengers_at_target_stop(bus_with_two_seats):
     # Testing that a passenger is removed from the bus when reaching their destination
     arriving_passenger = PassengerAgent(
-        lat=0, lon=0, destination=(0,0), origin_stop="Old", target_stop="Start", chosen_line="Line A"
+        passenger_id=1, lat=0, lon=0, destination=(0,0), origin_stop="Old", target_stop="Start", chosen_line="Line A"
     )
     bus_with_two_seats.passengers.append(arriving_passenger)
     
@@ -178,7 +178,7 @@ def test_bus_alights_passengers_at_target_stop(bus_with_two_seats):
 def test_bus_keeps_passengers_going_further(bus_with_two_seats):
     # Testing that a passenger whose destination is further ahead stays on board
     continuing_passenger = PassengerAgent(
-        lat=0, lon=0, destination=(0,0), origin_stop="Old", target_stop="End", chosen_line="Line A"
+        passenger_id=2, lat=0, lon=0, destination=(0,0), origin_stop="Old", target_stop="End", chosen_line="Line A"
     )
     bus_with_two_seats.passengers.append(continuing_passenger)
     
@@ -190,7 +190,7 @@ def test_bus_keeps_passengers_going_further(bus_with_two_seats):
 def test_bus_returns_alighted_passengers(bus_with_two_seats):
     # Testing that the method returns the list of people who got off
     arriving_passenger = PassengerAgent(
-        lat=0, lon=0, destination=(0,0), origin_stop="Old", target_stop="Start", chosen_line="Line A"
+        passenger_id=1, lat=0, lon=0, destination=(0,0), origin_stop="Old", target_stop="Start", chosen_line="Line A"
     )
     bus_with_two_seats.passengers.append(arriving_passenger)
     

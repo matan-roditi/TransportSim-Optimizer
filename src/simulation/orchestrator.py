@@ -168,6 +168,16 @@ class SimulationOrchestrator:
         if new_passengers:
             self.active_passengers.extend(new_passengers)
             self._total_passengers_deployed += len(new_passengers)
+
+            # Log the specific deployment of each individual passenger
+            for p in new_passengers:
+                origin_coords = f"({p.lat:.4f}, {p.lon:.4f})"
+                dest_coords = f"({p.destination[0]:.4f}, {p.destination[1]:.4f})"
+                logger.info(
+                    f"[{current_time_str}] passenger #{p.passenger_id} deployed "
+                    f"with origin:{origin_coords}, dest:{dest_coords}"
+                )
+
             total_waiting = len(self.active_passengers)
             logger.info(
                 f"[{current_time_str}] Deployed {len(new_passengers)} scheduled passenger(s). "
@@ -215,15 +225,15 @@ class SimulationOrchestrator:
                 # Apply the safety flag to prevent infinite dispatching loops
                 bus.reverse_dispatched = True
                 current_line_id = bus.route_data.get("line_id", "")
-                
+
                 # Only dispatch a reverse bus if the finishing bus was on a forward line
                 if not current_line_id.endswith(" Reverse"):
                     reverse_line = f"{current_line_id} Reverse"
-                    
+
                     if reverse_line in self.routes_cache:
                         reverse_stops = self.routes_cache[reverse_line]
                         new_bus_id = f"Bus_{reverse_line.replace(' ', '')}_{current_time.strftime('%H%M')}"
-                        
+
                         new_reverse_bus = BusAgent(
                             bus_id=new_bus_id, 
                             route_data={"line_id": reverse_line, "stops": reverse_stops}

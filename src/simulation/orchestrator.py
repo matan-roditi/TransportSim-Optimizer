@@ -195,12 +195,13 @@ class SimulationOrchestrator:
 
                 self._total_passengers_served += alighted_count
 
-                if alighted_count > 0 or boarded_count > 0:
-                    logger.info(
-                        f"[{current_time_str}] {bus.bus_id} at {current_stop} "
-                        f"| Left: {alighted_count} | Boarded: {boarded_count} "
-                        f"| On-board: {current_load} | Still waiting: {len(self.active_passengers)}"
-                    )
+                suffix = " | continued without stopping" if alighted_count == 0 and boarded_count == 0 else ""
+                logger.info(
+                    f"[{current_time_str}] {bus.bus_id} at {current_stop} "
+                    f"| Left: {alighted_count} | Boarded: {boarded_count} "
+                    f"| On-board: {current_load}"
+                    f"{suffix}"
+                )
 
             # Check if the bus has reached the end of its route
             if not next_stop and not getattr(bus, 'reverse_dispatched', False):

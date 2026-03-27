@@ -16,6 +16,7 @@ class PassengerAgent:
     Represents a single commuter in the simulation.
     Stores current GPS coordinates, target destination, and chosen transit details.
     """
+    passenger_id: int
     lat: float
     lon: float
     destination: Tuple[float, float]
@@ -43,12 +44,13 @@ class PassengerGenerator:
         self.neighborhoods = neighborhoods
         self.neighborhood_names = list(neighborhoods.keys())
         self.weights = [n["weight"] for n in neighborhoods.values()]
-        
+
         self.navigator = navigator
         self.routes_cache = routes_cache
         self.get_bus_time = get_bus_time
         self.get_walk_time = get_walk_time
         self.llm_schedule: List[Dict[str, Any]] = llm_schedule or []
+        self._passenger_counter = 0
 
     def generate_passengers_for_time(self, current_time_str: str) -> List[PassengerAgent]:
         """
@@ -105,8 +107,12 @@ class PassengerGenerator:
         # Prevent broken agents from spawning
         if origin_stop is None or target_stop is None or chosen_line is None:
             raise ValueError("No viable route found for passenger.")
+        
+        # Increment the counter and assign the ID
+        self._passenger_counter += 1
 
         return PassengerAgent(
+            passenger_id=self._passenger_counter,
             lat=lat, 
             lon=lon, 
             destination=destination,

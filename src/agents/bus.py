@@ -37,9 +37,10 @@ class BusAgent:
 
         # logger.info(f"Bus {bus_id} created for Line {self.navigator.line_id}")
 
-    def process_boarding(self, waiting_passengers: List['PassengerAgent']) -> List['PassengerAgent']:
+    def process_boarding(self, waiting_passengers: List['PassengerAgent'], current_time: str) -> List['PassengerAgent']:
         """
         Filters waiting passengers and boards them up to the capacity limit.
+        Stamps the boarding time on successful passengers.
         Returns the list of passengers who remain unboarded.
         """
         current_stop = self.navigator.get_current_stop()
@@ -63,6 +64,10 @@ class BusAgent:
         available_seats = self.capacity - len(self.passengers)
         actually_boarding = ready_to_board[:available_seats]
         unboarded_due_to_capacity = ready_to_board[available_seats:]
+
+        # Stamp the boarding time for everyone getting on the bus
+        for p in actually_boarding:
+            p.boarding_time = current_time
 
         self.passengers.extend(actually_boarding)
         passengers_left_behind.extend(unboarded_due_to_capacity)

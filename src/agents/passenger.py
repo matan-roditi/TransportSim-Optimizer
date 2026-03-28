@@ -78,7 +78,7 @@ class PassengerGenerator:
             if origin and dest:
                 try:
                     # Pass the AI's requested neighborhoods into the spawner
-                    passengers.append(self.generate_passenger(origin, dest))
+                    passengers.append(self.generate_passenger(origin, dest, current_time_str))
                 except ValueError:
                     logger.warning(f"Could not route scheduled passenger from {origin} to {dest} at {current_time_str}")
                 except KeyError:
@@ -86,7 +86,7 @@ class PassengerGenerator:
                     
         return passengers
 
-    def generate_passenger(self, origin_name: str, dest_name: str) -> PassengerAgent:
+    def generate_passenger(self, origin_name: str, dest_name: str, spawn_time: str) -> PassengerAgent:
         """
         Creates a passenger by selecting random coordinates within the specifically requested bounds.
         Calculates the optimal multimodal route using the passenger brain.
@@ -117,6 +117,10 @@ class PassengerGenerator:
         # Increment the counter and assign the ID
         self._passenger_counter += 1
 
+        # Calculate the final walking leg from the alighting stop to the actual destination
+        target_stop_coords = self.navigator.stops[target_stop]
+        walk_to_dest = self.get_walk_time(target_stop_coords, destination)
+
         return PassengerAgent(
             passenger_id=self._passenger_counter,
             lat=lat, 
@@ -125,7 +129,9 @@ class PassengerGenerator:
             origin_stop=origin_stop,
             target_stop=target_stop,
             chosen_line=chosen_line,
-            walking_time_to_stop=0 
+            walking_time_to_stop=0,
+            spawn_time=spawn_time,
+            walking_time_to_dest=walk_to_dest
         )
 
 

@@ -178,12 +178,6 @@ class SimulationOrchestrator:
                     f"with origin:{origin_coords}, dest:{dest_coords}"
                 )
 
-            total_waiting = len(self.active_passengers)
-            logger.info(
-                f"[{current_time_str}] Deployed {len(new_passengers)} scheduled passenger(s). "
-                f"Total currently waiting: {total_waiting}"
-            )
-
         # Temporary list to hold newly spawned reverse buses
         # This prevents modifying self.active_buses while we are iterating over it
         new_reverse_buses = []
@@ -199,7 +193,7 @@ class SimulationOrchestrator:
                 alighted_count = passengers_before_alight - passengers_after_alight
 
                 waiting_passengers_before = len(self.active_passengers)
-                self.active_passengers = bus.process_boarding(self.active_passengers)
+                self.active_passengers = bus.process_boarding(self.active_passengers, current_time_str)
                 boarded_count = waiting_passengers_before - len(self.active_passengers)
                 current_load = len(getattr(bus, 'passengers', []))
 

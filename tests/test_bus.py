@@ -1,6 +1,7 @@
 import pytest
 from agents.bus import BusAgent, RouteNavigator
 from agents.passenger import PassengerAgent
+from unittest.mock import MagicMock
 
 # Test route data fixture
 TEST_ROUTE_DATA = {
@@ -25,7 +26,7 @@ def test_bus_boarding_limit_return_value():
         PassengerAgent(passenger_id=i, lat=0, lon=0, destination=(0, 0), origin_stop="Stop_A", target_stop="Stop_B", chosen_line="Line_1")
         for i in range(55)
     ]
-    leftover = bus.process_boarding(waiting)
+    leftover = bus.process_boarding(waiting, "08:00")
     assert len(leftover) == 5
 
 def test_bus_boarding_limit_passenger_list():
@@ -35,7 +36,7 @@ def test_bus_boarding_limit_passenger_list():
         PassengerAgent(passenger_id=i, lat=0, lon=0, destination=(0, 0), origin_stop="Stop_A", target_stop="Stop_B", chosen_line="Line_1")
         for i in range(55)
     ]
-    bus.process_boarding(waiting)
+    bus.process_boarding(waiting, "08:00")
     assert len(bus.passengers) == 50
 
 def test_base_dwell_time():
@@ -132,14 +133,14 @@ def waiting_crowd():
 
 def test_bus_boards_passengers_up_to_capacity(bus_with_two_seats, waiting_crowd):
     # Testing that exactly two passengers make it onto the bus when capacity is two
-    bus_with_two_seats.process_boarding(waiting_crowd)
+    bus_with_two_seats.process_boarding(waiting_crowd, "08:00")
     
     assert len(bus_with_two_seats.passengers) == 2
 
 
 def test_bus_leaves_unboarded_passengers_in_queue(bus_with_two_seats, waiting_crowd):
     # Testing that the single passenger who could not fit is returned to the waiting pool
-    remaining_passengers = bus_with_two_seats.process_boarding(waiting_crowd)
+    remaining_passengers = bus_with_two_seats.process_boarding(waiting_crowd, "08:00")
     
     assert len(remaining_passengers) == 1
 
@@ -149,7 +150,7 @@ def test_bus_ignores_passengers_at_wrong_stop(bus_with_two_seats):
     wrong_stop_passenger = PassengerAgent(
             passenger_id=1, lat=0, lon=0, destination=(0,0), origin_stop="Middle", target_stop="End", chosen_line="Line A"
         )
-    bus_with_two_seats.process_boarding([wrong_stop_passenger])
+    bus_with_two_seats.process_boarding([wrong_stop_passenger], "08:00")
     
     assert len(bus_with_two_seats.passengers) == 0
 
@@ -159,7 +160,7 @@ def test_bus_ignores_passengers_with_wrong_destination(bus_with_two_seats):
     wrong_dest_passenger = PassengerAgent(
             passenger_id=1, lat=0, lon=0, destination=(0,0), origin_stop="Start", target_stop="OffRoute", chosen_line="Line A"
         )
-    bus_with_two_seats.process_boarding([wrong_dest_passenger])
+    bus_with_two_seats.process_boarding([wrong_dest_passenger], "08:00")
     
     assert len(bus_with_two_seats.passengers) == 0
 
@@ -197,3 +198,23 @@ def test_bus_returns_alighted_passengers(bus_with_two_seats):
     alighted = bus_with_two_seats.alight_passengers()
     
     assert len(alighted) == 1
+
+
+def test_bus_stamps_boarding_time_on_passenger():
+    # Verify that a passenger successfully boarding a bus receives the current time string
+    bus = BusAgent(
+        bus_id="TestBus",
+        route_data={"line_id": "Line 1", "stops": ["Stop A", "Stop B"]},
+        capacity=50
+    )
+    
+    mock_passenger = MagicMock(spec=PassengerAgent)
+    mock_passenger.origin_stop = "Stop A"
+    mock_passenger.target_stop = "Stop B"
+    mock_passenger.chosen_line = "Line 1"
+    mock_passenger.boarding_time = None
+    
+    # We pass the current time string as the second argument
+    bus.process_boarding([mock_passenger], "08:15")
+    
+    assert mock_passenger.boarding_time == "08:15"

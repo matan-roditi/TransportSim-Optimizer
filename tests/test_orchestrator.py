@@ -308,7 +308,7 @@ def test_bus_logs_boarding_and_alighting_at_stop(orchestrator, caplog):
     # 1 passenger on board who will alight: set a real list so alight_passengers()
     # can mutate it and len() reads the correct count before and after the call
     bus.passengers = ["Passenger_1"]
-    def alight_side_effect():
+    def alight_side_effect(current_time):
         bus.passengers.clear()
     bus.alight_passengers.side_effect = alight_side_effect
 
@@ -343,7 +343,7 @@ def test_bus_logs_continued_without_stopping_when_no_activity(orchestrator, capl
 
     # No on-board passengers to alight
     bus.passengers = []
-    bus.alight_passengers.side_effect = lambda: None
+    bus.alight_passengers.side_effect = lambda t: None
 
     # Passengers are waiting at the stop but for a different line — process_boarding()
     # returns the list unchanged because none of them board this bus

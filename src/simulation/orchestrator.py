@@ -188,7 +188,7 @@ class SimulationOrchestrator:
 
             if bus.ticks_until_arrival == 0:
                 passengers_before_alight = len(getattr(bus, 'passengers', []))
-                bus.alight_passengers()
+                bus.alight_passengers(current_time_str)
                 passengers_after_alight = len(getattr(bus, 'passengers', []))
                 alighted_count = passengers_before_alight - passengers_after_alight
 

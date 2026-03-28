@@ -145,10 +145,10 @@ class BusAgent:
                     f"(carried passengers across {self.navigator.current_index} stop(s))"
                 )
 
-    def alight_passengers(self) -> List[PassengerAgent]:
+    def alight_passengers(self, current_time: str) -> List['PassengerAgent']:
         """
         Removes passengers whose target destination matches the current stop.
-        Returns the list of passengers who successfully disembarked.
+        Stamps their alighting time and returns the list of disembarked passengers.
         """
         current_stop = self.navigator.get_current_stop()
         staying_onboard = []
@@ -156,6 +156,8 @@ class BusAgent:
 
         for passenger in self.passengers:
             if passenger.target_stop == current_stop:
+                # Stamp the alighting time the moment they step off the bus
+                passenger.alighting_time = current_time
                 getting_off.append(passenger)
             else:
                 staying_onboard.append(passenger)

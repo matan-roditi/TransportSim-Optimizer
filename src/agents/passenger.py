@@ -25,6 +25,12 @@ class PassengerAgent:
     chosen_line: str
     walking_time_to_stop: int = 0
 
+    # Commute tracking metrics
+    spawn_time: Optional[str] = None
+    boarding_time: Optional[str] = None
+    alighting_time: Optional[str] = None
+    walking_time_to_dest: int = 0
+
 
 class PassengerGenerator:
     """

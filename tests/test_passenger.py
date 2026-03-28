@@ -105,3 +105,64 @@ def test_generator_assigns_sequential_passenger_ids(mock_brain_generator):
     passenger1 = mock_brain_generator.generate_passenger("Center", "Center")
 
     assert passenger1.passenger_id == 1
+
+
+def test_generator_stamps_spawn_time_on_passenger():
+    # Verify that passengers generated for a specific time receive that exact time string
+    mock_navigator = MagicMock()
+    mock_navigator.find_optimal_route.return_value = ("Stop A", "Stop B", "Line 1", 15.0)
+
+    test_neighborhoods = {
+        "Origin": {"weight": 1.0, "bounds": {"lat": (32.0, 32.1), "lon": (34.0, 34.1)}},
+        "Dest": {"weight": 1.0, "bounds": {"lat": (32.2, 32.3), "lon": (34.2, 34.3)}}
+    }
+
+    test_schedule = [{
+        "departing_time": "08:15", 
+        "origin_neighborhood": "Origin", 
+        "destination_neighborhood": "Dest"
+    }]
+
+    generator = PassengerGenerator(
+        neighborhoods=test_neighborhoods,
+        navigator=mock_navigator,
+        routes_cache={},
+        get_bus_time=lambda start, end: 5,
+        get_walk_time=lambda start, end: 10,
+        llm_schedule=test_schedule
+    )
+
+    passengers = generator.generate_passengers_for_time("08:15")
+
+    assert passengers[0].spawn_time == "08:15"
+
+
+def test_generator_calculates_walking_time_to_dest():
+    # Verify the generator uses the injected walk time function for the final leg
+    mock_navigator = MagicMock()
+    mock_navigator.find_optimal_route.return_value = ("Stop A", "Stop B", "Line 1", 15.0)
+    
+    test_neighborhoods = {
+        "Origin": {"weight": 1.0, "bounds": {"lat": (32.0, 32.1), "lon": (34.0, 34.1)}},
+        "Dest": {"weight": 1.0, "bounds": {"lat": (32.2, 32.3), "lon": (34.2, 34.3)}}
+    }
+    
+    test_schedule = [{
+        "departing_time": "08:15", 
+        "origin_neighborhood": "Origin", 
+        "destination_neighborhood": "Dest"
+    }]
+    
+    # We force the walk time function to return exactly 12 minutes
+    generator = PassengerGenerator(
+        neighborhoods=test_neighborhoods,
+        navigator=mock_navigator,
+        routes_cache={},
+        get_bus_time=lambda start, end: 5,
+        get_walk_time=lambda start, end: 12,
+        llm_schedule=test_schedule
+    )
+    
+    passengers = generator.generate_passengers_for_time("08:15")
+    
+    assert passengers[0].walking_time_to_dest == 12

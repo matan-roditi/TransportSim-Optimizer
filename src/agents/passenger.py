@@ -31,6 +31,45 @@ class PassengerAgent:
     alighting_time: Optional[str] = None
     walking_time_to_dest: int = 0
 
+    def _time_str_to_minutes(self, time_str: Optional[str]) -> int:
+        """Converts an HH:MM string to total minutes since midnight for easy subtraction"""
+        if not time_str:
+            return 0
+        hours, minutes = map(int, time_str.split(':'))
+        return hours * 60 + minutes
+
+    @property
+    def time_in_bus(self) -> int:
+        """Calculates exact minutes spent riding the bus"""
+        if not self.boarding_time or not self.alighting_time:
+            return 0
+        alight_mins = self._time_str_to_minutes(self.alighting_time)
+        board_mins = self._time_str_to_minutes(self.boarding_time)
+        return alight_mins - board_mins
+
+    @property
+    def time_waited(self) -> int:
+        """Calculates minutes waited at the origin stop after walking there"""
+        if not self.spawn_time or not self.boarding_time:
+            return 0
+        board_mins = self._time_str_to_minutes(self.boarding_time)
+        spawn_mins = self._time_str_to_minutes(self.spawn_time)
+        total_time_before_boarding = board_mins - spawn_mins
+        
+        # Subtract the walk time to get the pure wait time at the station
+        return max(0, total_time_before_boarding - self.walking_time_to_stop)
+
+    @property
+    def total_commute_time(self) -> int:
+        """Calculates total end-to-end journey time including final walk"""
+        if not self.spawn_time or not self.alighting_time:
+            return 0
+        alight_mins = self._time_str_to_minutes(self.alighting_time)
+        spawn_mins = self._time_str_to_minutes(self.spawn_time)
+        
+        journey_to_final_stop = alight_mins - spawn_mins
+        return journey_to_final_stop + self.walking_time_to_dest
+
 
 class PassengerGenerator:
     """

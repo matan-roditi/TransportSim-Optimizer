@@ -188,9 +188,23 @@ class SimulationOrchestrator:
 
             if bus.ticks_until_arrival == 0:
                 passengers_before_alight = len(getattr(bus, 'passengers', []))
-                bus.alight_passengers(current_time_str)
+
+                # Capture the exact passengers getting off this tick
+                getting_off = bus.alight_passengers(current_time_str)
+
                 passengers_after_alight = len(getattr(bus, 'passengers', []))
                 alighted_count = passengers_before_alight - passengers_after_alight
+
+                # Emit the final Stage 2 arrival log for each passenger
+                for p in getting_off:
+                    logger.info(
+                        f"passenger #{p.passenger_id} arrived to dest| "
+                        f"total commute time: {p.total_commute_time}| "
+                        f"walk to origin: {p.walking_time_to_stop}| "
+                        f"time waited: {p.time_waited}| "
+                        f"time in the bus: {p.time_in_bus}| "
+                        f"walk to dest: {p.walking_time_to_dest}|"
+                    )
 
                 waiting_passengers_before = len(self.active_passengers)
                 self.active_passengers = bus.process_boarding(self.active_passengers, current_time_str)

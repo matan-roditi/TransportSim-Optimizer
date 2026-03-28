@@ -171,7 +171,7 @@ def test_bus_alights_passengers_at_target_stop(bus_with_two_seats):
     )
     bus_with_two_seats.passengers.append(arriving_passenger)
     
-    bus_with_two_seats.alight_passengers()
+    bus_with_two_seats.alight_passengers("08:00")
     
     assert len(bus_with_two_seats.passengers) == 0
 
@@ -183,7 +183,7 @@ def test_bus_keeps_passengers_going_further(bus_with_two_seats):
     )
     bus_with_two_seats.passengers.append(continuing_passenger)
     
-    bus_with_two_seats.alight_passengers()
+    bus_with_two_seats.alight_passengers("08:00")
     
     assert len(bus_with_two_seats.passengers) == 1
 
@@ -195,7 +195,7 @@ def test_bus_returns_alighted_passengers(bus_with_two_seats):
     )
     bus_with_two_seats.passengers.append(arriving_passenger)
     
-    alighted = bus_with_two_seats.alight_passengers()
+    alighted = bus_with_two_seats.alight_passengers("08:00")
     
     assert len(alighted) == 1
 
@@ -218,3 +218,27 @@ def test_bus_stamps_boarding_time_on_passenger():
     bus.process_boarding([mock_passenger], "08:15")
     
     assert mock_passenger.boarding_time == "08:15"
+
+
+def test_bus_stamps_alighting_time_on_passenger():
+    # Verify that a passenger getting off the bus receives the current time string
+    bus = BusAgent(
+        bus_id="TestBus",
+        route_data={"line_id": "Line 1", "stops": ["Stop A", "Stop B"]},
+        capacity=50
+    )
+    
+    # We advance the bus to Stop B so the passenger will want to get off
+    bus.navigator.advance()
+    
+    mock_passenger = MagicMock(spec=PassengerAgent)
+    mock_passenger.target_stop = "Stop B"
+    mock_passenger.alighting_time = None
+    
+    # Put the passenger on the bus manually for the test
+    bus.passengers = [mock_passenger]
+    
+    # We pass the current time string as the argument
+    bus.alight_passengers("08:00")
+    
+    assert mock_passenger.alighting_time == "08:00"

@@ -166,3 +166,60 @@ def test_generator_calculates_walking_time_to_dest():
     passengers = generator.generate_passengers_for_time("08:15")
     
     assert passengers[0].walking_time_to_dest == 12
+
+
+def test_passenger_calculates_time_in_bus():
+    # Verify the passenger can calculate the exact minutes spent on the bus
+    passenger = PassengerAgent(
+        passenger_id=99,
+        lat=32.0,
+        lon=34.0,
+        destination=(32.1, 34.1),
+        origin_stop="Stop A",
+        target_stop="Stop B",
+        chosen_line="Line 1",
+        spawn_time="08:10",
+        boarding_time="08:15",
+        alighting_time="08:35"
+    )
+    
+    assert passenger.time_in_bus == 20
+
+
+def test_passenger_calculates_time_waited():
+    # Verify the passenger correctly calculates the wait time at the origin stop
+    passenger = PassengerAgent(
+        passenger_id=99,
+        lat=32.0,
+        lon=34.0,
+        destination=(32.1, 34.1),
+        origin_stop="Stop A",
+        target_stop="Stop B",
+        chosen_line="Line 1",
+        walking_time_to_stop=5,
+        spawn_time="08:00",
+        boarding_time="08:15",
+        alighting_time="08:35"
+    )
+    # 15 minutes between spawn and boarding minus 5 minutes walking equals 10 minutes waiting
+    assert passenger.time_waited == 10
+
+
+def test_passenger_calculates_total_commute_time():
+    # Verify the passenger correctly calculates the total end to end journey time
+    passenger = PassengerAgent(
+        passenger_id=99,
+        lat=32.0,
+        lon=34.0,
+        destination=(32.1, 34.1),
+        origin_stop="Stop A",
+        target_stop="Stop B",
+        chosen_line="Line 1",
+        walking_time_to_stop=5,
+        walking_time_to_dest=8,
+        spawn_time="08:00",
+        boarding_time="08:15",
+        alighting_time="08:35"
+    )
+    # 35 minutes between spawn and alighting plus 8 minutes walking to destination equals 43 minutes
+    assert passenger.total_commute_time == 43

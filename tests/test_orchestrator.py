@@ -378,3 +378,36 @@ def test_orchestrator_logs_individual_passenger_deployment(orchestrator, caplog)
 
         expected_log = "passenger #42 deployed with origin:(32.1234, 34.5678), dest:(32.9999, 34.1111)"
         assert expected_log in caplog.text
+
+
+def test_orchestrator_logs_passenger_arrival_metrics(orchestrator, caplog):
+    # Verify the orchestrator emits the exact Stage 2 arrival log when a passenger offboards
+    caplog.set_level(logging.INFO)
+
+    bus = MagicMock()
+    bus.bus_id = "Bus_Line1_0800"
+    bus.ticks_until_arrival = 0
+    bus.navigator.get_current_stop.return_value = "Stop B"
+    bus.navigator.get_next_stop.return_value = None
+    bus.reverse_dispatched = False
+
+    mock_passenger = MagicMock()
+    mock_passenger.passenger_id = 42
+    mock_passenger.total_commute_time = 43
+    mock_passenger.walking_time_to_stop = 5
+    mock_passenger.time_waited = 10
+    mock_passenger.time_in_bus = 20
+    mock_passenger.walking_time_to_dest = 8
+
+    # Simulate the passenger getting off the bus during this tick
+    bus.alight_passengers.return_value = [mock_passenger]
+    bus.process_boarding.return_value = []
+    
+    orchestrator.active_buses = [bus]
+    orchestrator.passenger_generator.generate_passengers_for_time.return_value = []
+    orchestrator.dispatcher.should_dispatch.return_value = False
+
+    orchestrator.run_tick()
+
+    expected_log = "passenger #42 arrived to dest | total commute time: 43| walk to origin: 5| time waited: 10| time in the bus: 20| walk to dest: 8|"
+    assert expected_log in caplog.text

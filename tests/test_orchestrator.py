@@ -310,6 +310,7 @@ def test_bus_logs_boarding_and_alighting_at_stop(orchestrator, caplog):
     bus.passengers = ["Passenger_1"]
     def alight_side_effect(current_time):
         bus.passengers.clear()
+        return []
     bus.alight_passengers.side_effect = alight_side_effect
 
     # 1 passenger waiting at the stop who will board:
@@ -343,7 +344,7 @@ def test_bus_logs_continued_without_stopping_when_no_activity(orchestrator, capl
 
     # No on-board passengers to alight
     bus.passengers = []
-    bus.alight_passengers.side_effect = lambda t: None
+    bus.alight_passengers.side_effect = lambda t: []
 
     # Passengers are waiting at the stop but for a different line — process_boarding()
     # returns the list unchanged because none of them board this bus
@@ -405,9 +406,9 @@ def test_orchestrator_logs_passenger_arrival_metrics(orchestrator, caplog):
     
     orchestrator.active_buses = [bus]
     orchestrator.passenger_generator.generate_passengers_for_time.return_value = []
-    orchestrator.dispatcher.should_dispatch.return_value = False
+    orchestrator.dispatcher.should_dispatch = MagicMock(return_value=False)
 
     orchestrator.run_tick()
 
-    expected_log = "passenger #42 arrived to dest | total commute time: 43| walk to origin: 5| time waited: 10| time in the bus: 20| walk to dest: 8|"
+    expected_log = "passenger #42 arrived to dest| total commute time: 43| walk to origin: 5| time waited: 10| time in the bus: 20| walk to dest: 8|"
     assert expected_log in caplog.text

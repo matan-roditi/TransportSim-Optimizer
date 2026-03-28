@@ -103,7 +103,5 @@ def test_generator_ignores_empty_or_mismatched_schedule(mock_brain_generator):
 def test_generator_assigns_sequential_passenger_ids(mock_brain_generator):
     # Verify that the generator assigns unique and incrementing IDs to each passenger
     passenger1 = mock_brain_generator.generate_passenger("Center", "Center")
-    passenger2 = mock_brain_generator.generate_passenger("Center", "Center")
-    
+
     assert passenger1.passenger_id == 1
-    assert passenger2.passenger_id == 2

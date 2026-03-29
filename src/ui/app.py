@@ -8,7 +8,7 @@ import json
 import time
 import pydeck as pdk
 from dotenv import load_dotenv
-from ui.log_parser import parse_simulation_logs, get_simulation_state
+from log_parser import parse_simulation_logs, get_simulation_state
 
 load_dotenv()
 

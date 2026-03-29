@@ -218,6 +218,40 @@ def test_passenger_calculates_time_in_bus():
     assert passenger.time_in_bus == 20
 
 
+def test_passenger_is_not_ready_to_board_before_finishing_walk():
+    # Verify that the passenger correctly reports not being ready to board until the walking time has elapsed
+    passenger = PassengerAgent(
+        passenger_id=99,
+        lat=32.0,
+        lon=34.0,
+        destination=(32.1, 34.1),
+        origin_stop="Stop A",
+        target_stop="Stop B",
+        chosen_line="Line 1",
+        spawn_time="08:00",
+        walking_time_to_bus_stop=5
+    )
+
+    assert passenger.is_ready_to_board("08:04") is False
+
+
+def test_passenger_is_ready_to_board_after_finishing_walk():
+    # Verify that the passenger correctly reports being ready to board after the walking time has elapsed
+    passenger = PassengerAgent(
+        passenger_id=99,
+        lat=32.0,
+        lon=34.0,
+        destination=(32.1, 34.1),
+        origin_stop="Stop A",
+        target_stop="Stop B",
+        chosen_line="Line 1",
+        spawn_time="08:00",
+        walking_time_to_bus_stop=5
+    )
+
+    assert passenger.is_ready_to_board("08:05") is True
+
+
 def test_passenger_calculates_time_waited():
     # Verify the passenger correctly calculates the wait time at the origin stop
     passenger = PassengerAgent(

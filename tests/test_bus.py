@@ -220,6 +220,48 @@ def test_bus_stamps_boarding_time_on_passenger():
     assert mock_passenger.boarding_time == "08:15"
 
 
+def test_bus_does_not_board_passenger_still_walking_to_stop(bus_with_two_seats):
+    # Testing that a passenger who has not yet finished walking to the stop will not board
+    passenger = PassengerAgent(
+        passenger_id=1,
+        lat=0,
+        lon=0,
+        destination=(0, 0),
+        origin_stop="Start",
+        target_stop="End",
+        chosen_line="Line A",
+        spawn_time="08:00",
+        walking_time_to_bus_stop=5
+    )
+
+    remaining_passengers = bus_with_two_seats.process_boarding([passenger], "08:04")
+
+    assert len(bus_with_two_seats.passengers) == 0
+    assert remaining_passengers == [passenger]
+    assert passenger.boarding_time is None
+
+
+def test_bus_boards_passenger_after_walking_to_stop(bus_with_two_seats):
+    # Testing that a passenger who has finished walking to the stop will board
+    passenger = PassengerAgent(
+        passenger_id=1,
+        lat=0,
+        lon=0,
+        destination=(0, 0),
+        origin_stop="Start",
+        target_stop="End",
+        chosen_line="Line A",
+        spawn_time="08:00",
+        walking_time_to_bus_stop=5
+    )
+
+    remaining_passengers = bus_with_two_seats.process_boarding([passenger], "08:05")
+
+    assert len(bus_with_two_seats.passengers) == 1
+    assert remaining_passengers == []
+    assert passenger.boarding_time == "08:05"
+
+
 def test_bus_stamps_alighting_time_on_passenger():
     # Verify that a passenger getting off the bus receives the current time string
     bus = BusAgent(

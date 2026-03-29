@@ -51,11 +51,12 @@ class BusAgent:
         for passenger in waiting_passengers:
             is_at_correct_stop = passenger.origin_stop == current_stop
             goes_to_target = self.navigator.reaches_stop(passenger.target_stop)
+            has_arrived_at_stop = passenger.is_ready_to_board(current_time)
             
             # Ensure the passenger is specifically waiting for this bus line
             is_waiting_for_this_line = passenger.chosen_line == self.navigator.line_id
 
-            if is_at_correct_stop and goes_to_target and is_waiting_for_this_line:
+            if is_at_correct_stop and goes_to_target and has_arrived_at_stop and is_waiting_for_this_line:
                 ready_to_board.append(passenger)
             else:
                 passengers_left_behind.append(passenger)

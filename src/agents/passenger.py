@@ -47,6 +47,16 @@ class PassengerAgent:
         board_mins = self._time_str_to_minutes(self.boarding_time)
         return alight_mins - board_mins
 
+    def is_ready_to_board(self, current_time: str) -> bool:
+        """Returns True once the passenger has finished walking to the origin stop."""
+        if not self.spawn_time:
+            return True
+
+        current_mins = self._time_str_to_minutes(current_time)
+        arrival_at_stop_mins = self._time_str_to_minutes(self.spawn_time) + self.walking_time_to_bus_stop
+
+        return current_mins >= arrival_at_stop_mins
+
     @property
     def time_waited(self) -> int:
         """Calculates minutes waited at the origin stop after walking there"""

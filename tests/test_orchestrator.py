@@ -395,7 +395,7 @@ def test_orchestrator_logs_passenger_arrival_metrics(orchestrator, caplog):
     mock_passenger = MagicMock()
     mock_passenger.passenger_id = 42
     mock_passenger.total_commute_time = 43
-    mock_passenger.walking_time_to_stop = 5
+    mock_passenger.walking_time_to_bus_stop = 5
     mock_passenger.time_waited = 10
     mock_passenger.time_in_bus = 20
     mock_passenger.walking_time_to_dest = 8
@@ -410,5 +410,5 @@ def test_orchestrator_logs_passenger_arrival_metrics(orchestrator, caplog):
 
     orchestrator.run_tick()
 
-    expected_log = "passenger #42 arrived to dest| total commute time: 43| walk to origin: 5| time waited: 10| time in the bus: 20| walk to dest: 8|"
+    expected_log = "passenger #42 arrived to dest| total commute time: 43| walk to bus stop: 5| time waited: 10| time in the bus: 20| walk to dest: 8|"
     assert expected_log in caplog.text

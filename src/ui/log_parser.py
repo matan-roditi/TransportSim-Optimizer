@@ -1,6 +1,7 @@
 import re
 import pandas as pd
 
+
 def parse_simulation_logs(log_lines, stops_dict):
     """
     Parses raw simulation logs into a structured Pandas DataFrame.
@@ -57,3 +58,20 @@ def parse_simulation_logs(log_lines, stops_dict):
                 })
 
     return pd.DataFrame(parsed_data)
+
+
+def get_simulation_state(df: pd.DataFrame, current_time: str) -> pd.DataFrame:
+    """
+    Filters the parsed simulation logs to return the exact location of 
+    every active entity at a specific minute in time.
+    """
+    if df.empty:
+        return df
+
+    # Filter out any events that haven't happened yet
+    past_events = df[df['time'] <= current_time]
+    
+    # Since logs are chronological, keeping the 'last' duplicate gives us the latest location
+    latest_state = past_events.drop_duplicates(subset=['entity_id'], keep='last')
+    
+    return latest_state

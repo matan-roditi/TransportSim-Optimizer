@@ -200,7 +200,7 @@ class SimulationOrchestrator:
                     logger.info(
                         f"passenger #{p.passenger_id} arrived to dest| "
                         f"total commute time: {p.total_commute_time}| "
-                        f"walk to origin: {p.walking_time_to_stop}| "
+                        f"walk to bus stop: {p.walking_time_to_bus_stop}| "
                         f"time waited: {p.time_waited}| "
                         f"time in the bus: {p.time_in_bus}| "
                         f"walk to dest: {p.walking_time_to_dest}|"

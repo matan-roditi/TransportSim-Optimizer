@@ -23,10 +23,10 @@ class PassengerAgent:
     origin_stop: str
     target_stop: str
     chosen_line: str
-    walking_time_to_stop: int = 0
 
     # Commute tracking metrics
     spawn_time: Optional[str] = None
+    walking_time_to_bus_stop: int = 0
     boarding_time: Optional[str] = None
     alighting_time: Optional[str] = None
     walking_time_to_dest: int = 0
@@ -56,8 +56,7 @@ class PassengerAgent:
         spawn_mins = self._time_str_to_minutes(self.spawn_time)
         total_time_before_boarding = board_mins - spawn_mins
         
-        # Subtract the walk time to get the pure wait time at the station
-        return max(0, total_time_before_boarding - self.walking_time_to_stop)
+        return max(0, total_time_before_boarding - self.walking_time_to_bus_stop)
 
     @property
     def total_commute_time(self) -> int:
@@ -156,6 +155,10 @@ class PassengerGenerator:
         # Increment the counter and assign the ID
         self._passenger_counter += 1
 
+        # Calculate the first walking leg from the passenger's origin to the boarding stop
+        origin_stop_coords = self.navigator.stops[origin_stop]
+        walk_to_bus_stop = self.get_walk_time((lat, lon), origin_stop_coords)
+
         # Calculate the final walking leg from the alighting stop to the actual destination
         target_stop_coords = self.navigator.stops[target_stop]
         walk_to_dest = self.get_walk_time(target_stop_coords, destination)
@@ -168,7 +171,7 @@ class PassengerGenerator:
             origin_stop=origin_stop,
             target_stop=target_stop,
             chosen_line=chosen_line,
-            walking_time_to_stop=0,
+            walking_time_to_bus_stop=walk_to_bus_stop,
             spawn_time=spawn_time,
             walking_time_to_dest=walk_to_dest
         )

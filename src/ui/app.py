@@ -5,7 +5,10 @@ import pandas as pd
 import psycopg2
 import os
 import json
+import time
+import pydeck as pdk
 from dotenv import load_dotenv
+from ui.log_parser import parse_simulation_logs, get_simulation_state
 
 load_dotenv()
 
@@ -70,7 +73,21 @@ def get_edge_travel_time(stop_name_a, stop_name_b):
     except Exception as e:
         st.error(f"Error fetching travel time: {e}")
         return None
-    
+
+@st.cache_data(ttl=60) # Cache the parsed logs so we don't re-parse on every button click
+def load_and_parse_logs():
+    if not os.path.exists("simulation_output.log"):
+        return pd.DataFrame()
+
+    # Get the real GPS coordinates for the stops from your DB
+    stops_df = get_bus_stops()
+    stops_dict = {row['name']: (row['lat'], row['lon']) for _, row in stops_df.iterrows()}
+
+    with open("simulation_output.log", "r", encoding="utf-8") as f:
+        log_lines = f.readlines()
+
+    return parse_simulation_logs(log_lines, stops_dict)
+
 
 def main():
     st.set_page_config(page_title="Herzliya Map", layout="wide")
@@ -83,10 +100,16 @@ def main():
     if 'active_line_index' not in st.session_state:
         st.session_state.active_line_index = None
 
-    st.title("Herzliya Road Network")
+    st.title("Herzliya Transit Command Center")
+    
+    # Create the dual-mode interface
+    tab1, tab2 = st.tabs(["Route Builder", "Live Simulation"])
 
-    # Split layout into a map and a control panel
-    col_map, col_ctrl = st.columns([3, 1])
+    # ==========================================
+    # TAB 1: THE INTERACTIVE ROUTE BUILDER
+    # ==========================================
+    with tab1:
+        col_map, col_ctrl = st.columns([3, 1])
 
     with col_ctrl:
         st.header("Bus Lines")
@@ -169,20 +192,82 @@ def main():
         if 'last_processed_click' not in st.session_state:
             st.session_state.last_processed_click = None
 
-        # Logic: If a pinpoint was clicked AND we are in 'Adding Mode'
-        clicked_stop = map_data.get("last_object_clicked_tooltip")
-        
-        # Check if we have already processed this exact click event
-        if clicked_stop and clicked_stop != st.session_state.last_processed_click:
-            st.session_state.last_processed_click = clicked_stop
+            # Logic: If a pinpoint was clicked AND we are in 'Adding Mode'
+            clicked_stop = map_data.get("last_object_clicked_tooltip")
+            
+            # Check if we have already processed this exact click event
+            if clicked_stop and clicked_stop != st.session_state.last_processed_click:
+                st.session_state.last_processed_click = clicked_stop
+                if st.session_state.active_line_index is not None:
+                    line_idx = st.session_state.active_line_index
+                    # Add the stop if it's not already in the line
+                    if clicked_stop not in st.session_state.bus_lines[line_idx]["stops"]:
+                        st.session_state.bus_lines[line_idx]["stops"].append(clicked_stop)
+                        st.rerun()
 
-            if st.session_state.active_line_index is not None:
-                line_idx = st.session_state.active_line_index
-                
-                # Add the stop if it's not already in the line
-                if clicked_stop not in st.session_state.bus_lines[line_idx]["stops"]:
-                    st.session_state.bus_lines[line_idx]["stops"].append(clicked_stop)
-                    st.rerun()   #Refresh UI to show the new stop name immediately
+    # ==========================================
+    # TAB 2: THE LIVE SIMULATION PLAYBACK
+    # ==========================================
+    with tab2:
+        df_logs = load_and_parse_logs()
+        
+        if df_logs.empty:
+            st.warning("No simulation output found. Run your simulation script first!")
+            return
+
+        # Extract the unique minutes that actually have events in the log
+        timeline = sorted(df_logs['time'].unique())
+        
+        col_playback, col_metrics = st.columns([1, 4])
+        with col_playback:
+            play = st.button("▶ Play Simulation", type="primary", use_container_width=True)
+            time_display = st.empty()
+            
+        with col_metrics:
+            map_placeholder = st.empty()
+
+        # Define the static camera angle for the 3D PyDeck map
+        view_state = pdk.ViewState(
+            latitude=32.1663, 
+            longitude=34.825, 
+            zoom=13.5, 
+            pitch=45
+        )
+
+        def render_map(current_time):
+            """Filters the dataframe for the current minute and draws the emojis"""
+            state_df = get_simulation_state(df_logs, current_time)
+            
+            # The TextLayer natively renders standard Unicode emojis
+            layer = pdk.Layer(
+                "TextLayer",
+                state_df,
+                get_position=["lon", "lat"],
+                get_text="icon",
+                get_size=32,
+                get_alignment_baseline="'bottom'",
+                pickable=True
+            )
+            
+            r = pdk.Deck(
+                layers=[layer],
+                initial_view_state=view_state,
+                tooltip={"text": "{type}: {entity_id}"},
+                map_style="mapbox://styles/mapbox/light-v10"
+            )
+            map_placeholder.pydeck_chart(r)
+            time_display.metric("Simulation Time", current_time, f"{len(state_df)} Active Entities")
+
+        # Automatically render the very first frame of the simulation on load
+        render_map(timeline[0])
+
+        # Execute the playback loop if the user clicks Play
+        if play:
+            for current_minute in timeline:
+                render_map(current_minute)
+                time.sleep(0.4)  # Pause for 400ms so the user can watch them move
+            
+            st.success("Simulation playback complete!")
 
 
 if __name__ == "__main__":

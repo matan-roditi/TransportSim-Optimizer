@@ -168,6 +168,38 @@ def test_generator_calculates_walking_time_to_dest():
     assert passengers[0].walking_time_to_dest == 12
 
 
+def test_generator_calculates_walking_time_to_bus_stop():
+    # Verify the generator uses the injected walk time function for the first leg (origin to boarding stop)
+    mock_navigator = MagicMock()
+    mock_navigator.find_optimal_route.return_value = ("Stop A", "Stop B", "Line 1", 15.0)
+    mock_navigator.stops = {"Stop A": (32.05, 34.05), "Stop B": (32.25, 34.25)}
+
+    test_neighborhoods = {
+        "Origin": {"weight": 1.0, "bounds": {"lat": (32.0, 32.1), "lon": (34.0, 34.1)}},
+        "Dest": {"weight": 1.0, "bounds": {"lat": (32.2, 32.3), "lon": (34.2, 34.3)}}
+    }
+
+    test_schedule = [{
+        "departing_time": "08:15",
+        "origin_neighborhood": "Origin",
+        "destination_neighborhood": "Dest"
+    }]
+
+    # We force the walk time function to return exactly 7 minutes
+    generator = PassengerGenerator(
+        neighborhoods=test_neighborhoods,
+        navigator=mock_navigator,
+        routes_cache={},
+        get_bus_time=lambda start, end: 5,
+        get_walk_time=lambda start, end: 7,
+        llm_schedule=test_schedule
+    )
+
+    passengers = generator.generate_passengers_for_time("08:15")
+
+    assert passengers[0].walking_time_to_bus_stop == 7
+
+
 def test_passenger_calculates_time_in_bus():
     # Verify the passenger can calculate the exact minutes spent on the bus
     passenger = PassengerAgent(
@@ -196,7 +228,7 @@ def test_passenger_calculates_time_waited():
         origin_stop="Stop A",
         target_stop="Stop B",
         chosen_line="Line 1",
-        walking_time_to_stop=5,
+        walking_time_to_bus_stop=5,
         spawn_time="08:00",
         boarding_time="08:15",
         alighting_time="08:35"
@@ -215,7 +247,7 @@ def test_passenger_calculates_total_commute_time():
         origin_stop="Stop A",
         target_stop="Stop B",
         chosen_line="Line 1",
-        walking_time_to_stop=5,
+        walking_time_to_bus_stop=5,
         walking_time_to_dest=8,
         spawn_time="08:00",
         boarding_time="08:15",

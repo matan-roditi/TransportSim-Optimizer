@@ -51,6 +51,16 @@ def run_simulation():
     logger.info(f"  Passengers served   : {stats['passengers_served']}")
     logger.info(f"  Passengers unserved : {stats['passengers_unserved']}")
     logger.info(f"  Service rate        : {stats['service_rate_pct']}%")
+    logger.info("-" * 55)
+    logger.info(f"  Avg commute time for passengers : {stats['avg_commute_time_mins']:.1f} min")
+    logger.info(f"  Avg walking time for passengers : {stats['avg_walking_time_mins']:.1f} min")
+    logger.info(f"  Avg waiting time for passengers : {stats['avg_waiting_time_mins']:.1f} min")
+    logger.info("-" * 55)
+    logger.info("  Avg boardings per bus dispatch (by line):")
+    for key, value in stats.items():
+        if key.startswith("avg_boardings_"):
+            line_name = key[len("avg_boardings_"):]
+            logger.info(f"    {line_name:<20}: {value:.1f}")
     logger.info("=" * 55)
 
 

@@ -60,6 +60,11 @@ class SimulationOrchestrator:
         self._total_passengers_deployed: int = 0
         self._total_buses_dispatched: int = 0
 
+        # Detailed tracking lists/dicts for per-passenger and per-line stats
+        self.served_passengers: List[PassengerAgent] = []
+        self.line_boarding_counts: Dict[str, int] = {}
+        self.line_dispatch_counts: Dict[str, int] = {}
+
         logger.info("Simulation Orchestrator initialized for Herzliya")
 
     def _load_routes(self, file_path: str) -> Dict[str, List[str]]:
@@ -162,6 +167,7 @@ class SimulationOrchestrator:
                 self.active_buses.append(new_bus)
                 self._total_buses_dispatched += 1
                 dispatched_this_tick += 1
+                self.line_dispatch_counts[target_line] = self.line_dispatch_counts.get(target_line, 0) + 1
                 logger.info(f"[{current_time_str}] {bus_id} departing empty from {line_stops[0]} on {target_line}")
 
         new_passengers = self.passenger_generator.generate_passengers_for_time(current_time_str)
@@ -197,6 +203,7 @@ class SimulationOrchestrator:
 
                 # Emit the final Stage 2 arrival log for each passenger
                 for p in getting_off:
+                    self.served_passengers.append(p)
                     logger.info(
                         f"passenger #{p.passenger_id} arrived to dest| "
                         f"total commute time: {p.total_commute_time}| "
@@ -209,6 +216,13 @@ class SimulationOrchestrator:
                 waiting_passengers_before = len(self.active_passengers)
                 self.active_passengers = bus.process_boarding(self.active_passengers, current_time_str)
                 boarded_count = waiting_passengers_before - len(self.active_passengers)
+
+                # Track per-line boarding counts
+                if boarded_count > 0:
+                    line_key = bus.navigator.line_id
+                    self.line_boarding_counts[line_key] = (
+                        self.line_boarding_counts.get(line_key, 0) + boarded_count
+                    )
                 current_load = len(getattr(bus, 'passengers', []))
 
                 self._total_passengers_served += alighted_count
@@ -248,6 +262,7 @@ class SimulationOrchestrator:
                         )
                         new_reverse_buses.append(new_reverse_bus)
                         self._total_buses_dispatched += 1
+                        self.line_dispatch_counts[reverse_line] = self.line_dispatch_counts.get(reverse_line, 0) + 1
                         logger.info(f"[{current_time_str}] {bus.bus_id} completed forward route. Dispatching {new_bus_id} on {reverse_line}")
 
             travel_time = 0
@@ -384,8 +399,11 @@ class SimulationOrchestrator:
 
     def get_stats(self) -> Dict[str, Any]:
         """Returns a summary of key simulation statistics."""
-        unserved = len(self.active_passengers)
-        return {
+        still_on_buses = sum(len(getattr(bus, 'passengers', [])) for bus in self.active_buses)
+        unserved = len(self.active_passengers) + still_on_buses
+
+        # Initialize base stats
+        stats = {
             "buses_dispatched": self._total_buses_dispatched,
             "passengers_deployed": self._total_passengers_deployed,
             "passengers_served": self._total_passengers_served,
@@ -395,3 +413,30 @@ class SimulationOrchestrator:
                 if self._total_passengers_deployed > 0 else 0.0
             ),
         }
+
+        # Add passenger averages safely using the served passengers list
+        served_list = getattr(self, 'served_passengers', [])
+        total_served = len(served_list)
+
+        if total_served > 0:
+            stats["avg_commute_time_mins"] = sum(p.total_commute_time for p in served_list) / total_served
+
+            total_walking = sum((p.walking_time_to_bus_stop + p.walking_time_to_dest) for p in served_list)
+            stats["avg_walking_time_mins"] = total_walking / total_served
+
+            stats["avg_waiting_time_mins"] = sum(p.time_waited for p in served_list) / total_served
+        else:
+            stats["avg_commute_time_mins"] = 0.0
+            stats["avg_walking_time_mins"] = 0.0
+            stats["avg_waiting_time_mins"] = 0.0
+
+        # Add line boarding averages safely
+        for line, boardings in getattr(self, 'line_boarding_counts', {}).items():
+            dispatches = getattr(self, 'line_dispatch_counts', {}).get(line, 0)
+
+            if dispatches > 0:
+                stats[f"avg_boardings_{line}"] = boardings / dispatches
+            else:
+                stats[f"avg_boardings_{line}"] = 0.0
+
+        return stats

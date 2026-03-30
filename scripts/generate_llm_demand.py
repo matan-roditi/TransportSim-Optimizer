@@ -37,7 +37,6 @@ def generate_herzliya_demand_matrix() -> None:
     Note the distinction between "Herzliya_Pituach" (the beachside residential strip) and "Herzliya_Pituach_Business" (the tech/business park).
     Midday trips should be fewer and more mixed.
     Residential neighborhoods should dominate as origins in the morning and destinations in the evening.
-    
     Each passenger object must include:
     - departing_time: The time they start their commute (HH:MM format)
     - origin_neighborhood: The neighborhood they depart from

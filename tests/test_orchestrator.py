@@ -415,10 +415,10 @@ def test_orchestrator_logs_passenger_arrival_metrics(orchestrator, caplog):
 
 
 @pytest.fixture
-@patch('simulation_orchestrator.SimulationOrchestrator._load_routes', return_value={})
-@patch('simulation_orchestrator.SimulationOrchestrator._load_travel_times', return_value={})
-@patch('simulation_orchestrator.SimulationOrchestrator._load_stop_coordinates_from_db', return_value={})
-@patch('simulation_orchestrator.SimulationOrchestrator._load_llm_schedule', return_value=[])
+@patch('simulation.orchestrator.SimulationOrchestrator._load_routes', return_value={})
+@patch('simulation.orchestrator.SimulationOrchestrator._load_travel_times', return_value={})
+@patch('simulation.orchestrator.SimulationOrchestrator._load_stop_coordinates_from_db', return_value={})
+@patch('simulation.orchestrator.SimulationOrchestrator._load_llm_schedule', return_value=[])
 def orchestrator_with_stats(mock_schedule, mock_stops, mock_times, mock_routes):
     orchestrator = SimulationOrchestrator(neighborhoods={})
     

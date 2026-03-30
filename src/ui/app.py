@@ -5,8 +5,6 @@ import pandas as pd
 import psycopg2
 import os
 import json
-import time
-import pydeck as pdk
 from dotenv import load_dotenv
 from log_parser import parse_simulation_logs, get_simulation_state
 from folium.plugins import TimestampedGeoJson
@@ -28,6 +26,58 @@ def get_bus_stops():
     df = pd.read_sql(query, conn)
     conn.close()
     return df
+
+
+@st.cache_data(ttl=300)
+def get_stops_display_data():
+    """Build the static stop data used by the simulation map once per cache window."""
+    stops_df = get_bus_stops().copy()
+    # PyDeck TextLayer has no RTL support; reversing the string fixes Hebrew display
+    stops_df['name_display'] = stops_df['name'].apply(lambda s: s[::-1])
+    return stops_df.to_dict("records")
+
+
+@st.cache_data
+def build_simulation_geojson(df_logs: pd.DataFrame) -> dict:
+    """Build client-side animated GeoJSON frames for the simulation map."""
+    if df_logs.empty:
+        return {"type": "FeatureCollection", "features": []}
+
+    features = []
+    timeline = sorted(df_logs['time'].unique())
+
+    for current_time in timeline:
+        state_df = get_simulation_state(df_logs, current_time)
+        timestamp = f"2026-03-29T{current_time}:00"
+
+        for _, row in state_df.iterrows():
+            is_bus = row['type'] == 'bus'
+            radius = 8 if is_bus else 5
+            fill_color = '#0078FF' if is_bus else '#FF5050'
+
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [row['lon'], row['lat']],
+                },
+                "properties": {
+                    "times": [timestamp],
+                    "icon": "circle",
+                    "iconstyle": {
+                        "fillColor": fill_color,
+                        "fillOpacity": 0.9,
+                        "stroke": True,
+                        "color": "#1F1F1F",
+                        "weight": 1,
+                        "radius": radius,
+                    },
+                    "popup": row['entity_id'],
+                    "tooltip": row['entity_id'],
+                },
+            })
+
+    return {"type": "FeatureCollection", "features": features}
 
 
 def load_saved_lines():
@@ -76,8 +126,9 @@ def get_edge_travel_time(stop_name_a, stop_name_b):
         st.error(f"Error fetching travel time: {e}")
         return None
 
+@st.cache_data
 def load_and_parse_logs():
-    """Always reads the log from disk so the simulation display stays live."""
+    """Read and parse the simulation log once until the user explicitly refreshes it."""
     if not os.path.exists("simulation_output.log"):
         return pd.DataFrame()
 
@@ -91,8 +142,88 @@ def load_and_parse_logs():
     return parse_simulation_logs(log_lines, stops_dict)
 
 
+def render_live_simulation_tab():
+    # Header row with refresh button
+    hdr_col, refresh_col = st.columns([5, 1])
+    with hdr_col:
+        st.subheader("Live Simulation Viewer")
+    with refresh_col:
+        if st.button("Refresh Log", use_container_width=True, help="Re-read simulation_output.log from disk"):
+            load_and_parse_logs.clear()
+            build_simulation_geojson.clear()
+            st.rerun()
+
+    df_logs = load_and_parse_logs()
+
+    if df_logs.empty:
+        st.warning("No simulation output found. Run your simulation script first!")
+        return
+
+    timeline = sorted(df_logs['time'].unique())
+    latest_state = get_simulation_state(df_logs, timeline[-1])
+    active_buses = len(latest_state[latest_state['type'] == 'bus'])
+    active_passengers = len(latest_state[latest_state['type'] == 'passenger'])
+
+    sim_map = folium.Map(location=[32.1706, 34.823], zoom_start=14, tiles="cartodbpositron")
+
+    for stop in get_bus_stops().itertuples(index=False):
+        folium.CircleMarker(
+            location=[stop.lat, stop.lon],
+            radius=6,
+            tooltip=stop.name,
+            color="black",
+            fill=True,
+            fill_color="yellow",
+            fill_opacity=0.9,
+            weight=1,
+        ).add_to(sim_map)
+
+    TimestampedGeoJson(
+        build_simulation_geojson(df_logs),
+        period="PT1M",
+        duration="PT1M",
+        transition_time=400,
+        auto_play=False,
+        loop=False,
+        max_speed=4,
+        loop_button=True,
+        date_options="HH:mm",
+        time_slider_drag_update=True,
+    ).add_to(sim_map)
+
+    info_col, map_col = st.columns([0.9, 5.1])
+
+    with info_col:
+        st.metric("Frames", len(timeline))
+        st.metric("Last Timestamp", timeline[-1])
+        st.metric("Last Frame Entities", f"🚌 {active_buses}  🚶 {active_passengers}")
+        st.caption("Use the map's built-in play button and time slider for smooth client-side playback.")
+
+    with map_col:
+        st_folium(
+            sim_map,
+            height=560,
+            use_container_width=True,
+            key="simulation_timestamped_map",
+        )
+
+
 def main():
     st.set_page_config(page_title="Herzliya Map", layout="wide")
+
+    st.markdown(
+        """
+        <style>
+            [data-testid="stAppViewContainer"] .main .block-container {
+                max-width: 1450px;
+                padding-top: 1.2rem;
+                padding-left: 2rem;
+                padding-right: 2rem;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
     # Initialize the list of bus lines in session state if not already there
     if 'bus_lines' not in st.session_state:
@@ -211,151 +342,7 @@ def main():
     # TAB 2: THE LIVE SIMULATION PLAYBACK
     # ==========================================
     with tab2:
-        # Header row with refresh button
-        hdr_col, refresh_col = st.columns([5, 1])
-        with hdr_col:
-            st.subheader("Live Simulation Viewer")
-        with refresh_col:
-            if st.button("🔄 Refresh Log", use_container_width=True, help="Re-read simulation_output.log from disk"):
-                st.rerun()
-
-        # Always read from disk so the display reflects the latest log content
-        df_logs = load_and_parse_logs()
-
-        if df_logs.empty:
-            st.warning("No simulation output found. Run your simulation script first!")
-        else:
-            timeline = sorted(df_logs['time'].unique())
-
-            # ---- Session-state playback controls ----
-            if 'sim_playing' not in st.session_state:
-                st.session_state.sim_playing = False
-            if 'sim_frame' not in st.session_state:
-                st.session_state.sim_frame = 0
-
-            col_playback, col_map = st.columns([1, 4])
-
-            with col_playback:
-                if not st.session_state.sim_playing:
-                    if st.button("▶ Play", type="primary", use_container_width=True):
-                        st.session_state.sim_playing = True
-                        st.session_state.sim_frame = 0
-                        st.rerun()
-                else:
-                    if st.button("⏹ Stop", type="secondary", use_container_width=True):
-                        st.session_state.sim_playing = False
-                        st.rerun()
-
-                # Manual time scrubber (disabled while playing)
-                scrub = st.slider(
-                    "Time Step",
-                    min_value=0,
-                    max_value=len(timeline) - 1,
-                    value=st.session_state.sim_frame,
-                    disabled=st.session_state.sim_playing,
-                    key="sim_slider",
-                )
-                if not st.session_state.sim_playing and scrub != st.session_state.sim_frame:
-                    st.session_state.sim_frame = scrub
-
-                time_display = st.empty()
-
-            with col_map:
-                map_placeholder = st.empty()
-
-            # ---- Static Herzliya stop data (re-uses DB cache) ----
-            # PyDeck TextLayer has no RTL support; reversing the string fixes Hebrew display
-            _stops_raw = get_bus_stops().copy()
-            _stops_raw['name_display'] = _stops_raw['name'].apply(lambda s: s[::-1])
-            stops_data = _stops_raw.to_dict("records")
-
-            view_state = pdk.ViewState(
-                latitude=32.1706,
-                longitude=34.823,
-                zoom=12.8,
-                pitch=0,   # flat 2-D view matches the Folium map in Tab 1
-            )
-
-            BUS_URL = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f68c.png"
-            PERSON_URL = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f6b6.png"
-
-            def get_icon_dict(entity_type):
-                if entity_type == 'bus':
-                    return {"url": BUS_URL, "width": 72, "height": 72, "anchorY": 72}
-                return {"url": PERSON_URL, "width": 72, "height": 72, "anchorY": 72}
-
-            def render_pydeck_map(current_time):
-                state_df = get_simulation_state(df_logs, current_time).copy()
-                state_df['icon_data'] = state_df['type'].apply(get_icon_dict)
-                state_df['icon_size'] = state_df['type'].apply(lambda t: 6 if t == 'bus' else 3)
-
-                # Yellow stop markers matching Tab 1
-                stops_layer = pdk.Layer(
-                    type="ScatterplotLayer",
-                    data=stops_data,
-                    get_position=["lon", "lat"],
-                    get_fill_color=[255, 220, 0, 220],
-                    get_line_color=[0, 0, 0, 255],
-                    stroked=True,
-                    get_radius=40,
-                    radius_min_pixels=6,
-                    pickable=True,
-                )
-
-                # Stop name labels (name_display is the Hebrew string reversed for RTL fix)
-                stops_text_layer = pdk.Layer(
-                    type="TextLayer",
-                    data=stops_data,
-                    get_position=["lon", "lat"],
-                    get_text="name_display",
-                    get_size=12,
-                    get_color=[30, 30, 30, 230],
-                    get_pixel_offset=[0, -14],
-                    pickable=False,
-                )
-
-                # Moving buses and passengers
-                icon_layer = pdk.Layer(
-                    type="IconLayer",
-                    data=state_df,
-                    get_icon="icon_data",
-                    get_size="icon_size",
-                    size_scale=8,
-                    get_position=["lon", "lat"],
-                    pickable=True,
-                )
-
-                r = pdk.Deck(
-                    layers=[stops_layer, stops_text_layer, icon_layer],
-                    initial_view_state=view_state,
-                    tooltip={"text": "{name}{entity_id}"},
-                    map_style="road",
-                )
-
-                # Using a fixed key prevents a full WebGL remount on every rerun
-                map_placeholder.pydeck_chart(r, key="sim_map")
-
-                active_buses = len(state_df[state_df['type'] == 'bus'])
-                active_passengers = len(state_df[state_df['type'] == 'passenger'])
-                time_display.metric(
-                    "Simulation Time",
-                    current_time,
-                    f"🚌 {active_buses} buses  🚶 {active_passengers} passengers",
-                )
-
-            # ---- Render current frame ----
-            current_frame = min(st.session_state.sim_frame, len(timeline) - 1)
-            render_pydeck_map(timeline[current_frame])
-
-            # ---- Auto-advance one frame and rerun (non-blocking) ----
-            if st.session_state.sim_playing:
-                if st.session_state.sim_frame < len(timeline) - 1:
-                    time.sleep(0.4)
-                    st.session_state.sim_frame += 1
-                    st.rerun()
-                else:
-                    st.session_state.sim_playing = False
-                    st.success("✅ Simulation playback complete!")
+        render_live_simulation_tab()
 
 
 if __name__ == "__main__":

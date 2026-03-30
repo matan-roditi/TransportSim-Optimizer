@@ -5,7 +5,7 @@ Contains GPS bounding boxes for all major neighborhoods.
 
 HERZLIYA_NEIGHBORHOODS = {
     # Beachside residential strip (west of Ramat Yam road)
-    "Herzliya_Pituach": {"weight": 1.0, "bounds": {"lat": [32.168, 32.183], "lon": [34.795, 34.808]}},
+    "Herzliya_Pituach": {"weight": 1.0, "bounds": {"lat": [32.168, 32.183], "lon": [34.799, 34.808]}},
     # Tech / business park (Park Azorim, Silicon Wadi) — higher weight = more commuters
     "Herzliya_Pituach_Business": {"weight": 2.0, "bounds": {"lat": [32.155, 32.168], "lon": [34.803, 34.818]}},
     "Marina": {"weight": 1.0, "bounds": {"lat": [32.158, 32.165], "lon": [34.795, 34.805]}},
@@ -21,5 +21,6 @@ HERZLIYA_NEIGHBORHOODS = {
     "Neve_Amal": {"weight": 1.0, "bounds": {"lat": [32.160, 32.175], "lon": [34.850, 34.865]}},
     "Yad_HaTisha": {"weight": 1.0, "bounds": {"lat": [32.176, 32.183], "lon": [34.845, 34.855]}},
     "Gan_Rashal": {"weight": 1.0, "bounds": {"lat": [32.176, 32.183], "lon": [34.835, 34.845]}},
-    "Neve_Oved": {"weight": 1.0, "bounds": {"lat": [32.170, 32.180], "lon": [34.845, 34.855]}}
+    "Neve_Oved": {"weight": 1.0, "bounds": {"lat": [32.170, 32.180], "lon": [34.845, 34.855]}},
+    "Train_Station": {"weight": 1.0, "bounds": {"lat": [32.160, 32.165], "lon": [34.810, 34.820]}},
 }

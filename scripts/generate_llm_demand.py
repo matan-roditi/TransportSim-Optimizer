@@ -31,12 +31,13 @@ def generate_herzliya_demand_matrix() -> None:
     You are an expert urban mobility data generator modeling the daily commute patterns of Herzliya, Israel. 
 
     Generate a realistic travel demand matrix for an average weekday from 06:00 to 22:00. 
-    Scale: 1 passenger object in your output represents exactly 200 real citizens of Herzliya(about 500 passengers representing the 100,000 population). 
+    Generate exactly 500 passenger objects when each passenger object represents 200 real Herzliya citizens in the simulation.
     Consider Herzliya's specific geography, such as morning commutes toward the tech hubs in Pituach and evening returns to residential zones.
-    Note that big part of the population goes in the morning to the train station near Herzliya_B, and returns from there in the evening.
+    Note that some of the population goes in the morning to the train station and to Herzliya_Pituach_Business, and returns from there in the evening.
     Note the distinction between "Herzliya_Pituach" (the beachside residential strip) and "Herzliya_Pituach_Business" (the tech/business park).
-    "Herzliya_Pituach_Business" should be a very frequent DESTINATION in the morning peak (06:00-09:30) and a very frequent ORIGIN in the evening peak (16:00-20:00), reflecting heavy tech-worker commutes.
-
+    Midday trips should be fewer and more mixed.
+    Residential neighborhoods should dominate as origins in the morning and destinations in the evening.
+    
     Each passenger object must include:
     - departing_time: The time they start their commute (HH:MM format)
     - origin_neighborhood: The neighborhood they depart from
@@ -47,7 +48,7 @@ def generate_herzliya_demand_matrix() -> None:
         "Herzliya_Pituach", "Herzliya_Pituach_Business", "Marina", "Nof_Yam", "Herzliya_B", 
         "Green_Herzliya", "Young_Herzliya", "Galil_Yam", "City_Center", 
         "Neve_Yisrael", "Neve_Amirim", "Shikun_Darom", "Neve_Amal", 
-        "Yad_HaTisha", "Gan_Rashal", "Neve_Oved"
+        "Yad_HaTisha", "Gan_Rashal", "Neve_Oved", "Train_Station"
     ]
 
     You must return ONLY a valid JSON object with a single key called "passengers". 
@@ -94,6 +95,7 @@ def generate_herzliya_demand_matrix() -> None:
 
     except Exception as e:
         logger.error(f"An error occurred during generation: {e}")
+
 
 if __name__ == "__main__":
     generate_herzliya_demand_matrix()

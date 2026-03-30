@@ -412,3 +412,58 @@ def test_orchestrator_logs_passenger_arrival_metrics(orchestrator, caplog):
 
     expected_log = "passenger #42 arrived to dest| total commute time: 43| walk to bus stop: 5| time waited: 10| time in the bus: 20| walk to dest: 8|"
     assert expected_log in caplog.text
+
+
+@pytest.fixture
+@patch('simulation_orchestrator.SimulationOrchestrator._load_routes', return_value={})
+@patch('simulation_orchestrator.SimulationOrchestrator._load_travel_times', return_value={})
+@patch('simulation_orchestrator.SimulationOrchestrator._load_stop_coordinates_from_db', return_value={})
+@patch('simulation_orchestrator.SimulationOrchestrator._load_llm_schedule', return_value=[])
+def orchestrator_with_stats(mock_schedule, mock_stops, mock_times, mock_routes):
+    orchestrator = SimulationOrchestrator(neighborhoods={})
+    
+    # Setup mock passengers with predefined commute metrics
+    p1 = MagicMock()
+    p1.total_commute_time = 30
+    p1.walking_time_to_bus_stop = 5
+    p1.walking_time_to_dest = 5
+    p1.time_waited = 10
+    
+    p2 = MagicMock()
+    p2.total_commute_time = 50
+    p2.walking_time_to_bus_stop = 10
+    p2.walking_time_to_dest = 10
+    p2.time_waited = 20
+    
+    # Inject the mock passengers and line data directly into the orchestrator
+    orchestrator.served_passengers = [p1, p2]
+    
+    orchestrator.line_boarding_counts = {"Line 1": 40, "Line 2": 10, "Line 3": 0, "Line 4": 0}
+    orchestrator.line_dispatch_counts = {"Line 1": 2, "Line 2": 1, "Line 3": 0, "Line 4": 0}
+    
+    return orchestrator
+
+
+def test_stats_calculates_average_commute_time(orchestrator_with_stats):
+    stats = orchestrator_with_stats.get_stats()
+    assert stats["avg_commute_time_mins"] == 40.0
+
+
+def test_stats_calculates_average_walking_time(orchestrator_with_stats):
+    stats = orchestrator_with_stats.get_stats()
+    assert stats["avg_walking_time_mins"] == 15.0
+
+
+def test_stats_calculates_average_waiting_time(orchestrator_with_stats):
+    stats = orchestrator_with_stats.get_stats()
+    assert stats["avg_waiting_time_mins"] == 15.0
+
+
+def test_stats_calculates_avg_boardings_line_1(orchestrator_with_stats):
+    stats = orchestrator_with_stats.get_stats()
+    assert stats["avg_boardings_Line 1"] == 20.0
+
+
+def test_stats_handles_zero_dispatches_safely(orchestrator_with_stats):
+    stats = orchestrator_with_stats.get_stats()
+    assert stats["avg_boardings_Line 3"] == 0.0

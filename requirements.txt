@@ -19,3 +19,4 @@ pytest
 
 openai
 python-dotenv
+crewai

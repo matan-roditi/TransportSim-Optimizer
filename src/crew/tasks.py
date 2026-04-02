@@ -1,78 +1,57 @@
 from crewai import Task
+import json
 
 
-def create_passenger_audit_task(agent, metrics):
-    if not metrics:
-        description_text = "No wait time data available for this simulation run."
+def create_demand_analysis_task(agent, unserved_od_metrics):
+    # This task maps where people wanted to go vs where the buses actually went
+    if not unserved_od_metrics:
+        description_text = "No Origin-Destination failure data available."
     else:
-        # Initialize category lists
-        critical_delays = []
-        normal_ops = []
-        no_passengers = []
+        description_text = "Unserved Passenger Origin-Destination Data:\n\n"
+        for od_pair, count in unserved_od_metrics.items():
+            description_text += f"Failed Connection: {od_pair} ({count} passengers stranded)\n"
 
-        # Categorize each neighborhood and format the float to one decimal place
-        for neighborhood, wait_time in metrics.items():
-            if wait_time == 0.0:
-                no_passengers.append(neighborhood)
-            elif wait_time >= 10.0:
-                critical_delays.append(f"{neighborhood} ({wait_time:.1f}m)")
-            else:
-                normal_ops.append(f"{neighborhood} ({wait_time:.1f}m)")
+        description_text += "\nAnalyze this data and point out the biggest missing links in the current network topology."
 
-        # Build a concise markdown summary
-        description_text = "Passenger Wait Time Audit Data:\n\n"
-
-        if critical_delays:
-            description_text += f"CRITICAL DELAYS (>10m): {', '.join(critical_delays)}\n"
-        if normal_ops:
-            description_text += f"Normal Operation (1-10m): {', '.join(normal_ops)}\n"
-        if no_passengers:
-            description_text += f"No Passengers Logged: {', '.join(no_passengers)}\n"
-
-        description_text += "\nReview this data and formulate a response."
-
-    # Bind the dynamically generated description to the CrewAI task
     return Task(
         description=description_text,
-        expected_output="A formal proposal identifying critical delays and suggesting frequency increases.",
+        expected_output="An analytical report listing the specific origin-destination pairs that lack bus coverage.",
         agent=agent
     )
 
 
-def create_efficiency_review_task(agent, metrics):
-    # Handle the edge case for missing data
-    if not metrics:
-        description_text = "No metrics available for efficiency review."
-    else:
-        # Initialize category lists
-        dead_zones = []
-        overserved = []
-        standard = []
+def create_topological_redesign_task(agent, current_lines, valid_stops_list, travel_times_summary):
+    # This core task redraws the map using only the allowed stops and travel times
+    description_text = f"""
+    The human planner created these baseline bus lines:
+    {json.dumps(current_lines, indent=2, ensure_ascii=False)}
 
-        # Parse metrics looking for waste
-        for neighborhood, wait_time in metrics.items():
-            if wait_time == 0.0:
-                dead_zones.append(neighborhood)
-            elif wait_time < 3.0:
-                overserved.append(f"{neighborhood} ({wait_time:.1f}m)")
-            else:
-                standard.append(f"{neighborhood} ({wait_time:.1f}m)")
+    Review the missing links identified by the Analyst.
+    Your task is to REDESIGN the sequence of stops for these 4 lines to fix the geographic failures. 
+    You must physically change the stops lists to create better, more direct routes.
 
-        # Build a concise markdown summary
-        description_text = "System Efficiency Review Data:\n\n"
+    CRITICAL GEOGRAPHY CONSTRAINTS:
+    You may ONLY use these exact valid stops:
+    {valid_stops_list}
 
-        if dead_zones:
-            description_text += f"Dead Zones (0 pax): {', '.join(dead_zones)}\n"
-        if overserved:
-            description_text += f"OVERSERVED (<3m wait): {', '.join(overserved)}\n"
-        if standard:
-            description_text += f"Standard Operation: {', '.join(standard)}\n"
+    Consider these travel times to ensure your routes flow logically and do not zigzag randomly:
+    {travel_times_summary}
 
-        description_text += "\nReview this data and propose route or frequency reductions."
+    CRITICAL FORMAT INSTRUCTION: 
+    You must output ONLY raw valid JSON. Do not include markdown code blocks, greetings, or conversational text. 
+    Your output must be a LIST of 4 objects with name and stops keys.
 
-    # Bind the dynamically generated description to the CrewAI task
+    Example Format:
+    [
+      {{
+        "name": "Line 1",
+        "stops": ["ת. רכבת הרצליה", "מחלף הסירה"]
+      }}
+    ]
+    """
+
     return Task(
         description=description_text,
-        expected_output="A list of proposed route cuts and frequency reductions to save costs.",
+        expected_output="A raw JSON list containing exactly 4 bus line objects with their new stop sequences. No other text.",
         agent=agent
     )

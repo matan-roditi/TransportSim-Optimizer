@@ -67,28 +67,26 @@ def run_simulation():
             logger.info(f"    {line_name:<20}: {value:.1f}")
     logger.info("=" * 55)
 
-    # Force all pending logs to be written to disk before parsing
-    for handler in logger.handlers:
-        handler.flush()
+    try:
+        # Initialize the collector and extract the simulated day data
+        collector = MetricsCollector("simulation_output.log")
+        wait_time_metrics = collector.get_average_wait_times()
 
-    logger.info("=" * 55)
-    logger.info("  CONVENING AI TRANSIT BOARD OF DIRECTORS")
-    logger.info("=" * 55)
+        logger.info("Metrics extracted. Handing data to the AI agents...")
 
-    # Initialize the collector and extract the simulated day data in one step
-    collector = MetricsCollector("simulation_output.log")
-    wait_time_metrics = collector.get_average_wait_times()
+        # Execute the crew and retrieve the consensus
+        board_decision = run_board_meeting(wait_time_metrics)
 
-    logger.info("Metrics extracted. Handing data to the AI agents...")
+        logger.info("=" * 55)
+        logger.info("  AI BOARD FINAL CONSENSUS")
+        logger.info("=" * 55)
+        logger.info(f"\n{board_decision}")
+        logger.info("=" * 55)
 
-    # Execute the crew and retrieve the consensus
-    board_decision = run_board_meeting(wait_time_metrics)
-
-    logger.info("=" * 55)
-    logger.info("  AI BOARD FINAL CONSENSUS")
-    logger.info("=" * 55)
-    logger.info(f"\n{board_decision}")
-    logger.info("=" * 55)
+    except Exception as e:
+        # Catch network timeouts or API authentication errors gracefully
+        logger.error(f"The AI Board failed to convene. Error: {e}")
+        logger.info("Simulation completed without AI consensus.")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,9 @@ import subprocess
 from dotenv import load_dotenv
 from simulation.orchestrator import SimulationOrchestrator
 from simulation.config import HERZLIYA_NEIGHBORHOODS
+# Import the AI integration modules
+from crew.metrics import MetricsCollector
+from crew.board import run_board_meeting
 
 load_dotenv()
 
@@ -18,6 +21,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
 
 def run_simulation():
     """
@@ -61,6 +65,30 @@ def run_simulation():
         if key.startswith("avg_boardings_"):
             line_name = key[len("avg_boardings_"):]
             logger.info(f"    {line_name:<20}: {value:.1f}")
+    logger.info("=" * 55)
+
+    # Force all pending logs to be written to disk before parsing
+    for handler in logger.handlers:
+        handler.flush()
+
+    logger.info("=" * 55)
+    logger.info("  CONVENING AI TRANSIT BOARD OF DIRECTORS")
+    logger.info("=" * 55)
+
+    # Extract the simulated day data
+    collector = MetricsCollector()
+    collector.parse_log_file("simulation_output.log")
+    wait_time_metrics = collector.calculate_average_wait_times()
+
+    logger.info("Metrics extracted. Handing data to the AI agents...")
+
+    # Execute the crew and retrieve the consensus
+    board_decision = run_board_meeting(wait_time_metrics)
+
+    logger.info("=" * 55)
+    logger.info("  AI BOARD FINAL CONSENSUS")
+    logger.info("=" * 55)
+    logger.info(f"\n{board_decision}")
     logger.info("=" * 55)
 
 

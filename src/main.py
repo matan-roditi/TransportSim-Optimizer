@@ -75,10 +75,9 @@ def run_simulation():
     logger.info("  CONVENING AI TRANSIT BOARD OF DIRECTORS")
     logger.info("=" * 55)
 
-    # Extract the simulated day data
-    collector = MetricsCollector()
-    collector.parse_log_file("simulation_output.log")
-    wait_time_metrics = collector.calculate_average_wait_times()
+    # Initialize the collector and extract the simulated day data in one step
+    collector = MetricsCollector("simulation_output.log")
+    wait_time_metrics = collector.get_average_wait_times()
 
     logger.info("Metrics extracted. Handing data to the AI agents...")
 

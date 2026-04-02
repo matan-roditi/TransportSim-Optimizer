@@ -1,5 +1,5 @@
 import pytest
-from database.metrics import MetricsCollector
+from crew.metrics import MetricsCollector
 from simulation.config import HERZLIYA_NEIGHBORHOODS
 
 

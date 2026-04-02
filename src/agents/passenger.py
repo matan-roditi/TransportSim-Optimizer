@@ -10,6 +10,7 @@ import math
 # Setup logging for external API communication and generation events
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PassengerAgent:
     """
@@ -23,6 +24,9 @@ class PassengerAgent:
     origin_stop: str
     target_stop: str
     chosen_line: str
+
+    # Origin neighborhood name for metrics tracking
+    origin_neighborhood: str = ""
 
     # Commute tracking metrics
     spawn_time: Optional[str] = None
@@ -181,6 +185,7 @@ class PassengerGenerator:
             origin_stop=origin_stop,
             target_stop=target_stop,
             chosen_line=chosen_line,
+            origin_neighborhood=origin_name,
             walking_time_to_bus_stop=walk_to_bus_stop,
             spawn_time=spawn_time,
             walking_time_to_dest=walk_to_dest

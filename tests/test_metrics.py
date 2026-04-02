@@ -8,9 +8,9 @@ def sample_log_file(tmp_path):
     # Setup a temporary log file mimicking the exact output of the orchestrator
     log_path = tmp_path / "simulation_output.log"
     log_path.write_text(
-        "2026-04-02 18:06:19 - passenger #1 arrived | walk to dest: 5| waited 10.0 mins at Green_Herzliya\n"
-        "2026-04-02 18:06:20 - passenger #2 arrived | walk to dest: 2| waited 20.0 mins at Green_Herzliya\n"
-        "2026-04-02 18:06:21 - passenger #3 arrived | walk to dest: 8| waited 5.0 mins at City_Center\n"
+        "2026-04-02 18:06:19 - passenger #1 arrived to dest| total commute time: 30| walk to bus stop: 5| time waited: 10| time in the bus: 10| walk to dest: 5| neighborhood: Green_Herzliya|\n"
+        "2026-04-02 18:06:20 - passenger #2 arrived to dest| total commute time: 40| walk to bus stop: 5| time waited: 20| time in the bus: 10| walk to dest: 5| neighborhood: Green_Herzliya|\n"
+        "2026-04-02 18:06:21 - passenger #3 arrived to dest| total commute time: 20| walk to bus stop: 3| time waited: 5| time in the bus: 7| walk to dest: 5| neighborhood: City_Center|\n"
         "2026-04-02 18:06:22 - Bus_Line1_0800 departed empty from Stop A\n"
     )
     return log_path

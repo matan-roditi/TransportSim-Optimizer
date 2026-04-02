@@ -14,7 +14,7 @@ class MetricsCollector:
         for neighborhood in HERZLIYA_NEIGHBORHOODS:
             wait_times[neighborhood] = []
 
-        pattern = re.compile(r"waited ([\d\.]+) mins at (.*)$")
+        pattern = re.compile(r"time waited: ([\d\.]+)\| .*neighborhood: ([^|]+)\|")
 
         try:
             with open(self.log_file, 'r', encoding='utf-8') as file:

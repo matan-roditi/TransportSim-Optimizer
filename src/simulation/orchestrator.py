@@ -210,7 +210,8 @@ class SimulationOrchestrator:
                         f"walk to bus stop: {p.walking_time_to_bus_stop}| "
                         f"time waited: {p.time_waited}| "
                         f"time in the bus: {p.time_in_bus}| "
-                        f"walk to dest: {p.walking_time_to_dest}|"
+                        f"walk to dest: {p.walking_time_to_dest}| "
+                        f"neighborhood: {p.origin_neighborhood}|"
                     )
 
                 waiting_passengers_before = len(self.active_passengers)

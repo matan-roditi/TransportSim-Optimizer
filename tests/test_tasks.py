@@ -1,67 +1,136 @@
-from crewai import Task
-from crew.agents import create_efficiency_specialist
-from crew.agents import create_neighborhood_advocate
-from crew.tasks import create_passenger_audit_task
-from crew.tasks import create_efficiency_review_task
+import pytest
+from crewai import Agent, Task
+from crew.tasks import (
+    create_demand_analysis_task,
+    create_passenger_audit_task,
+    create_topological_redesign_task,
+)
 
 
-def test_audit_task_is_crewai_task_instance():
-    # Verify the factory returns a usable CrewAI Task without crashing
-    advocate = create_neighborhood_advocate()
-    task = create_passenger_audit_task(advocate, {})
+@pytest.fixture
+def dummy_agent():
+    return Agent(
+        role="Test Agent",
+        goal="Help run unit tests",
+        backstory="Just a test mock",
+    )
+
+
+def test_passenger_audit_task_returns_task_instance(dummy_agent):
+    # Verify the passenger audit factory returns a CrewAI Task object.
+    task = create_passenger_audit_task(dummy_agent, {})
     assert isinstance(task, Task)
 
 
-def test_audit_task_description_contains_metrics_data():
-    # Verify the injected metrics dict is actually interpolated into the description
-    advocate = create_neighborhood_advocate()
-    mock_metrics = {"Green_Herzliya": 15.0}
-    task = create_passenger_audit_task(advocate, mock_metrics)
-    assert "Green_Herzliya" in task.description
-
-
-def test_audit_task_flags_critical_delays():
-    # Validate that the task logic explicitly highlights neighborhoods exceeding the wait time threshold
-    advocate = create_neighborhood_advocate()
-    metrics = {"Green_Herzliya": 15.0, "City_Center": 5.0}
-    task = create_passenger_audit_task(advocate, metrics)
-    assert "CRITICAL DELAYS (>10m): Green_Herzliya" in task.description
-
-
-def test_audit_task_identifies_unvisited_neighborhoods():
-    # Ensure the task logic explicitly notes areas with zero passengers to inform the agent of dead zones
-    advocate = create_neighborhood_advocate()
-    metrics = {"Neve_Amirim": 0.0}
-    task = create_passenger_audit_task(advocate, metrics)
-    assert "No Passengers Logged: Neve_Amirim" in task.description
-
-
-def test_audit_task_handles_empty_metrics_gracefully():
-    # Ensure the task handles an empty metrics dictionary safely without generating a broken prompt
-    advocate = create_neighborhood_advocate()
-    task = create_passenger_audit_task(advocate, {})
+def test_passenger_audit_task_handles_empty_data(dummy_agent):
+    # Ensure empty wait-time input produces a safe fallback description.
+    task = create_passenger_audit_task(dummy_agent, {})
     assert "No wait time data available" in task.description
 
 
-def test_review_task_flags_overserved_areas():
-    # Validate that the task logic highlights neighborhoods with suspiciously low wait times as potential cost waste
-    specialist = create_efficiency_specialist()
-    metrics = {"City_Center": 2.0}
-    task = create_efficiency_review_task(specialist, metrics)
-    assert "OVERSERVED (<3m wait): City_Center" in task.description
+def test_passenger_audit_task_includes_critical_delay_section(dummy_agent):
+    # Confirm high wait times are grouped into the critical delays section.
+    task = create_passenger_audit_task(dummy_agent, {"City_Center": 11.5})
+    assert "CRITICAL DELAYS" in task.description
 
 
-def test_review_task_ignores_normal_wait_times():
-    # Validate that normal wait times do not trigger an overserved warning
-    specialist = create_efficiency_specialist()
-    metrics = {"Yad_HaTisha": 7.0}
-    task = create_efficiency_review_task(specialist, metrics)
-    assert "OVERSERVED: Yad_HaTisha" not in task.description
+def test_passenger_audit_task_includes_critical_neighborhood(dummy_agent):
+    # Check that the delayed neighborhood and its formatted wait time appear in the prompt.
+    task = create_passenger_audit_task(dummy_agent, {"City_Center": 11.5})
+    assert "City_Center (11.5m)" in task.description
 
 
-def test_review_task_identifies_dead_zones_for_cuts():
-    # Ensure the task logic points out areas with zero passengers as candidates for route reductions
-    specialist = create_efficiency_specialist()
-    metrics = {"Neve_Amirim": 0.0}
-    task = create_efficiency_review_task(specialist, metrics)
-    assert "Dead Zones (0 pax): Neve_Amirim" in task.description
+def test_passenger_audit_task_includes_normal_operation_section(dummy_agent):
+    # Verify moderate wait times are labeled as normal operation.
+    task = create_passenger_audit_task(dummy_agent, {"Marina": 5.0})
+    assert "Normal Operation" in task.description
+
+
+def test_passenger_audit_task_includes_no_passengers_section(dummy_agent):
+    # Ensure zero-demand neighborhoods are called out in their own section.
+    task = create_passenger_audit_task(dummy_agent, {"Neve_Amirim": 0.0})
+    assert "No Passengers Logged" in task.description
+
+
+def test_passenger_audit_task_includes_expected_output_contract(dummy_agent):
+    # Validate that the task advertises the intended audit deliverable.
+    task = create_passenger_audit_task(dummy_agent, {"Marina": 5.0})
+    assert "underserved neighborhoods" in task.expected_output
+
+
+def test_demand_analysis_task_returns_task_instance(dummy_agent):
+    # Verify the demand analysis factory returns a CrewAI Task object.
+    task = create_demand_analysis_task(dummy_agent, {})
+    assert isinstance(task, Task)
+
+
+def test_demand_analysis_task_handles_empty_data(dummy_agent):
+    # Ensure empty OD-failure input results in a clear fallback description.
+    task = create_demand_analysis_task(dummy_agent, {})
+    assert "No Origin-Destination failure data available." in task.description
+
+
+def test_demand_analysis_task_includes_failed_connection_label(dummy_agent):
+    # Confirm failed OD pairs are introduced with the expected label.
+    task = create_demand_analysis_task(dummy_agent, {"Neve_Amal to Marina": 45})
+    assert "Failed Connection:" in task.description
+
+
+def test_demand_analysis_task_includes_od_pair(dummy_agent):
+    # Verify the actual origin-destination pair is embedded in the prompt.
+    task = create_demand_analysis_task(dummy_agent, {"Neve_Amal to Marina": 45})
+    assert "Neve_Amal to Marina" in task.description
+
+
+def test_demand_analysis_task_includes_stranded_passenger_count(dummy_agent):
+    # Check that stranded passenger counts are surfaced for prioritization.
+    task = create_demand_analysis_task(dummy_agent, {"Neve_Amal to Marina": 45})
+    assert "45 passengers stranded" in task.description
+
+
+def test_demand_analysis_task_includes_expected_output_contract(dummy_agent):
+    # Validate that the task describes the intended analytical output.
+    task = create_demand_analysis_task(dummy_agent, {"Neve_Amal to Marina": 45})
+    assert "lack bus coverage" in task.expected_output
+
+
+def test_topological_redesign_task_returns_task_instance(dummy_agent):
+    # Verify the redesign factory returns a CrewAI Task object.
+    task = create_topological_redesign_task(dummy_agent, [], [], "")
+    assert isinstance(task, Task)
+
+
+def test_topological_redesign_task_includes_baseline_lines(dummy_agent):
+    # Ensure the current line layout is included for redesign context.
+    lines = [{"name": "Line 1", "stops": ["ת. רכבת הרצליה"]}]
+    task = create_topological_redesign_task(dummy_agent, lines, [], "")
+    assert '"name": "Line 1"' in task.description
+
+
+def test_topological_redesign_task_includes_valid_stops_list(dummy_agent):
+    # Verify the prompt includes the allowed stop set for route redesign.
+    task = create_topological_redesign_task(dummy_agent, [], ["ת. רכבת הרצליה", "מחלף הסירה"], "")
+    assert "מחלף הסירה" in task.description
+
+
+def test_topological_redesign_task_includes_travel_time_summary(dummy_agent):
+    # Check that travel-time guidance is present to constrain redesign choices.
+    task = create_topological_redesign_task(
+        dummy_agent,
+        [],
+        ["ת. רכבת הרצליה", "מחלף הסירה"],
+        "[ת. רכבת הרצליה] to [מחלף הסירה]: 5m",
+    )
+    assert "5m" in task.description
+
+
+def test_topological_redesign_task_requires_raw_json_output(dummy_agent):
+    # Ensure the prompt explicitly requires raw JSON-only output.
+    task = create_topological_redesign_task(dummy_agent, [], [], "")
+    assert "ONLY raw valid JSON" in task.description
+
+
+def test_topological_redesign_task_includes_expected_output_contract(dummy_agent):
+    # Validate that the expected output specifies the required bus-line payload.
+    task = create_topological_redesign_task(dummy_agent, [], [], "")
+    assert "exactly 4 bus line objects" in task.expected_output

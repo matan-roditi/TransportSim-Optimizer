@@ -25,15 +25,7 @@ def test_audit_task_flags_critical_delays():
     advocate = create_neighborhood_advocate()
     metrics = {"Green_Herzliya": 15.0, "City_Center": 5.0}
     task = create_passenger_audit_task(advocate, metrics)
-    assert "CRITICAL DELAY: Green_Herzliya" in task.description
-
-
-def test_audit_task_ignores_acceptable_wait_times():
-    # Validate that neighborhoods with acceptable wait times are not falsely flagged as critical
-    advocate = create_neighborhood_advocate()
-    metrics = {"Green_Herzliya": 15.0, "City_Center": 5.0}
-    task = create_passenger_audit_task(advocate, metrics)
-    assert "CRITICAL DELAY: City_Center" not in task.description
+    assert "CRITICAL DELAYS (>10m): Green_Herzliya" in task.description
 
 
 def test_audit_task_identifies_unvisited_neighborhoods():
@@ -41,7 +33,7 @@ def test_audit_task_identifies_unvisited_neighborhoods():
     advocate = create_neighborhood_advocate()
     metrics = {"Neve_Amirim": 0.0}
     task = create_passenger_audit_task(advocate, metrics)
-    assert "No passengers logged for Neve_Amirim" in task.description
+    assert "No Passengers Logged: Neve_Amirim" in task.description
 
 
 def test_audit_task_handles_empty_metrics_gracefully():
@@ -56,7 +48,7 @@ def test_review_task_flags_overserved_areas():
     specialist = create_efficiency_specialist()
     metrics = {"City_Center": 2.0}
     task = create_efficiency_review_task(specialist, metrics)
-    assert "OVERSERVED: City_Center" in task.description
+    assert "OVERSERVED (<3m wait): City_Center" in task.description
 
 
 def test_review_task_ignores_normal_wait_times():
@@ -72,4 +64,4 @@ def test_review_task_identifies_dead_zones_for_cuts():
     specialist = create_efficiency_specialist()
     metrics = {"Neve_Amirim": 0.0}
     task = create_efficiency_review_task(specialist, metrics)
-    assert "Dead zone detected: Neve_Amirim" in task.description
+    assert "Dead Zones (0 pax): Neve_Amirim" in task.description

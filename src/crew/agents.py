@@ -10,3 +10,14 @@ def create_neighborhood_advocate():
         verbose=True,
         allow_delegation=False
     )
+
+
+def create_efficiency_specialist():
+    # Instantiate the specialist agent focused on budget and logistics
+    return Agent(
+        role='Efficiency Specialist',
+        goal='Optimize routes to minimize operational costs and reduce empty bus miles',
+        backstory='You are a seasoned logistics expert determined to improve system efficiency.',
+        verbose=True,
+        allow_delegation=False
+    )

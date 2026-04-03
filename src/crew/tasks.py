@@ -55,7 +55,7 @@ def create_demand_analysis_task(agent, unserved_od_metrics):
     )
 
 
-def create_topological_redesign_task(agent, current_lines, valid_stops_list, travel_times_summary):
+def create_topological_redesign_task(agent, current_lines, valid_stops_list, travel_times_summary, context=None):
     # This core task redraws the map using only the allowed stops and travel times
     description_text = f"""
     The human planner created these baseline bus lines:
@@ -88,5 +88,6 @@ def create_topological_redesign_task(agent, current_lines, valid_stops_list, tra
     return Task(
         description=description_text,
         expected_output="A raw JSON list containing exactly 4 bus line objects with their new stop sequences. No other text.",
+        context=context or [],
         agent=agent
     )

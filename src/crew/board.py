@@ -1,31 +1,69 @@
+import json
+import re
 from crewai import Crew, Process
-from crew.agents import create_neighborhood_advocate, create_efficiency_specialist
-from crew.tasks import create_passenger_audit_task, create_efficiency_review_task
+from crew.agents import (
+    create_neighborhood_advocate,
+    create_demand_analyst,
+    create_route_architect
+)
+from crew.tasks import (
+    create_passenger_audit_task,
+    create_demand_analysis_task,
+    create_topological_redesign_task
+)
+from database.db_utils import fetch_travel_times_summary
 
 
-def assemble_transit_board(metrics):
-    # Initialize the board members
+def run_topological_board_meeting(current_lines, wait_time_metrics, unserved_od_metrics, valid_stops_list):
+    # Fetch geographic constraints early — fail fast if the DB is unavailable
+    travel_times_string = fetch_travel_times_summary()
+    if travel_times_string == "Travel time data unavailable.":
+        raise RuntimeError(
+            "Cannot run board meeting: travel time data is unavailable. "
+            "Check the database connection and environment variables."
+        )
+
+    # Initialize the three agents for the transit committee
     advocate = create_neighborhood_advocate()
-    specialist = create_efficiency_specialist()
+    analyst = create_demand_analyst()
+    architect = create_route_architect()
 
-    # Initialize the tasks and inject the wait time data
-    audit_task = create_passenger_audit_task(advocate, metrics)
-    review_task = create_efficiency_review_task(specialist, metrics)
+    # Create the specialized tasks with simulation and geographic data
+    audit_task = create_passenger_audit_task(advocate, wait_time_metrics)
+    analysis_task = create_demand_analysis_task(analyst, unserved_od_metrics)
 
-    # Bundle the agents and tasks into a cohesive crew
-    # The sequential process ensures the advocate audits first before the specialist reviews
-    return Crew(
-        agents=[advocate, specialist],
-        tasks=[audit_task, review_task],
+    # Pass prior task outputs as context so the architect benefits from the
+    # advocate's pain-point audit and the analyst's missing-link findings
+    redesign_task = create_topological_redesign_task(
+        architect,
+        current_lines,
+        valid_stops_list,
+        travel_times_string,
+        context=[audit_task, analysis_task]
+    )
+
+    # Define the crew with a sequential process to ensure logical hand-offs
+    topological_crew = Crew(
+        agents=[advocate, analyst, architect],
+        tasks=[audit_task, analysis_task, redesign_task],
         process=Process.sequential,
         verbose=True
     )
 
+    # Execute the board meeting
+    result = topological_crew.kickoff()
 
-def run_board_meeting(metrics):
-    # Assemble the crew and trigger the execution process
-    transit_board = assemble_transit_board(metrics)
+    # Validate that the architect returned parseable JSON before handing it back.
+    # LLMs sometimes wrap output in markdown code blocks (```json ... ```) even
+    # when instructed not to — strip those before attempting to parse.
+    raw = result.raw.strip()
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE).strip()
+    try:
+        json.loads(cleaned)
+    except (json.JSONDecodeError, TypeError) as e:
+        raise ValueError(
+            f"Board meeting completed but the architect returned invalid JSON: {e}\n"
+            f"Raw output was:\n{raw}"
+        )
 
-    # Start the LLM evaluation and return the final consensus
-    result = transit_board.kickoff()
-    return result
+    return cleaned

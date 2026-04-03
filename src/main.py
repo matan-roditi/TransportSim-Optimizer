@@ -1,3 +1,5 @@
+import csv
+import json
 import logging
 import os
 import sys
@@ -7,7 +9,7 @@ from simulation.orchestrator import SimulationOrchestrator
 from simulation.config import HERZLIYA_NEIGHBORHOODS
 # Import the AI integration modules
 from crew.metrics import MetricsCollector
-from crew.board import run_board_meeting
+from crew.board import run_topological_board_meeting
 
 load_dotenv()
 
@@ -72,16 +74,47 @@ def run_simulation():
         collector = MetricsCollector("simulation_output.log")
         wait_time_metrics = collector.get_average_wait_times()
 
+        # Load the baseline routes that ran during this simulation
+        with open("bus_lines_save.json", encoding="utf-8") as f:
+            current_lines = json.load(f)
+
+        # Build an OD failure map from passengers still stranded at end of service
+        unserved_od_metrics = {}
+        for p in orchestrator.active_passengers:
+            key = f"{p.origin_stop} to {p.target_stop}"
+            unserved_od_metrics[key] = unserved_od_metrics.get(key, 0) + 1
+
+        # Load the full candidate stop universe from the curated top-20 CSV so the
+        # AI can route buses to stops that are not yet served by any current line.
+        valid_stops_list = []
+        csv_path = os.path.join(os.path.dirname(__file__), "database", "herzliya_top20_selected.csv")
+        with open(csv_path, encoding="utf-8") as csv_file:
+            for row in csv.DictReader(csv_file):
+                name = row["stop_name"].strip()
+                if name and name not in valid_stops_list:
+                    valid_stops_list.append(name)
+
         logger.info("Metrics extracted. Handing data to the AI agents...")
 
-        # Execute the crew and retrieve the consensus
-        board_decision = run_board_meeting(wait_time_metrics)
+        # Execute the crew and retrieve the redesigned routes as JSON
+        board_decision = run_topological_board_meeting(
+            current_lines=current_lines,
+            wait_time_metrics=wait_time_metrics,
+            unserved_od_metrics=unserved_od_metrics,
+            valid_stops_list=valid_stops_list,
+        )
 
         logger.info("=" * 55)
         logger.info("  AI BOARD FINAL CONSENSUS")
         logger.info("=" * 55)
         logger.info(f"\n{board_decision}")
         logger.info("=" * 55)
+
+        # Write the AI-redesigned routes to a separate file, keeping the original
+        # human-authored routes in bus_lines_save.json untouched for comparison.
+        with open("bus_lines_crew.json", "w", encoding="utf-8") as f:
+            json.dump(json.loads(board_decision), f, ensure_ascii=False, indent=4)
+        logger.info("Redesigned routes saved to bus_lines_crew.json.")
 
     except Exception as e:
         # Catch network timeouts or API authentication errors gracefully

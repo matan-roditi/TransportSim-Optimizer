@@ -134,3 +134,58 @@ def test_topological_redesign_task_includes_expected_output_contract(dummy_agent
     # Validate that the expected output specifies the required bus-line payload.
     task = create_topological_redesign_task(dummy_agent, [], [], "")
     assert "exactly 4 bus line objects" in task.expected_output
+
+
+def test_topological_redesign_task_context_defaults_to_empty(dummy_agent):
+    # Confirm that omitting context does not raise and sets an empty list.
+    task = create_topological_redesign_task(dummy_agent, [], [], "")
+    assert task.context == []
+
+
+def test_topological_redesign_task_context_is_set_when_provided(dummy_agent):
+    # Verify that a provided context list is wired onto the task.
+    other_task = create_passenger_audit_task(dummy_agent, {"Marina": 5.0})
+    task = create_topological_redesign_task(dummy_agent, [], [], "", context=[other_task])
+    assert other_task in task.context
+
+
+def test_topological_redesign_task_includes_all_lines(dummy_agent):
+    # Ensure all baseline lines are serialized into the redesign prompt.
+    lines = [
+        {"name": "Line 1", "stops": ["Stop_A"]},
+        {"name": "Line 2", "stops": ["Stop_B"]},
+    ]
+    task = create_topological_redesign_task(dummy_agent, lines, [], "")
+    assert '"name": "Line 1"' in task.description
+    assert '"name": "Line 2"' in task.description
+
+
+def test_passenger_audit_task_boundary_exactly_ten_is_critical(dummy_agent):
+    # Verify that a wait time of exactly 10.0 minutes triggers the critical delay bucket.
+    task = create_passenger_audit_task(dummy_agent, {"Neve_Oved": 10.0})
+    assert "CRITICAL DELAYS" in task.description
+
+
+def test_passenger_audit_task_boundary_just_under_ten_is_normal(dummy_agent):
+    # Verify that a wait time of 9.9 minutes falls into normal operation, not critical.
+    task = create_passenger_audit_task(dummy_agent, {"Neve_Oved": 9.9})
+    assert "Normal Operation" in task.description
+
+
+def test_passenger_audit_task_critical_neighborhood_not_in_normal_section(dummy_agent):
+    # Confirm a critical neighborhood does not appear under the normal operation label.
+    task = create_passenger_audit_task(dummy_agent, {"City_Center": 11.5, "Marina": 5.0})
+    description = task.description
+    normal_section_start = description.find("Normal Operation")
+    assert description.find("City_Center") < normal_section_start
+
+
+def test_demand_analysis_task_includes_all_od_pairs(dummy_agent):
+    # Ensure all failed connection pairs are present when multiple OD failures are given.
+    metrics = {
+        "Neve_Amal to Marina": 20,
+        "City_Center to Train_Station": 35,
+    }
+    task = create_demand_analysis_task(dummy_agent, metrics)
+    assert "Neve_Amal to Marina" in task.description
+    assert "City_Center to Train_Station" in task.description

@@ -22,14 +22,14 @@ class SimulationOrchestrator:
     Coordinates time advancement, bus dispatching, and passenger spawning.
     """
 
-    def __init__(self, neighborhoods: Dict[str, Any], routes_file: str = "bus_lines_save.json") -> None:
+    def __init__(self, neighborhoods: Dict[str, Any]) -> None:
         # Initialize the simulation clock (starts at 06:00)
         self.clock = SimulationClock("06:00", "22:00")
         # Initialize the frequency manager
         self.dispatcher = Dispatcher()
 
         # Load all bus routes into memory once when the simulation starts
-        self.routes_cache = self._load_routes(routes_file)
+        self.routes_cache = self._load_routes("bus_lines_save.json")
         # Load travel times between stops from the database
         self.travel_times_cache: Dict[Tuple[str, str], int] = self._load_travel_times()
 

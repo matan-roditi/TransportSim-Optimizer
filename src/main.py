@@ -14,13 +14,17 @@ from crew.board import run_topological_board_meeting
 load_dotenv()
 
 # Configure logging to write to both a file and the console
+# File handler captures everything (INFO+); console only shows warnings and above
+_file_handler = logging.FileHandler("simulation_output.log", mode="w", encoding="utf-8")
+_file_handler.setLevel(logging.INFO)
+
+_console_handler = logging.StreamHandler(sys.stdout)
+_console_handler.setLevel(logging.WARNING)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("simulation_output.log", mode="w", encoding="utf-8"),
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[_file_handler, _console_handler]
 )
 logger = logging.getLogger(__name__)
 
@@ -104,17 +108,12 @@ def run_simulation():
             valid_stops_list=valid_stops_list,
         )
 
-        logger.info("=" * 55)
-        logger.info("  AI BOARD FINAL CONSENSUS")
-        logger.info("=" * 55)
-        logger.info(f"\n{board_decision}")
-        logger.info("=" * 55)
-
         # Write the AI-redesigned routes to a separate file, keeping the original
         # human-authored routes in bus_lines_save.json untouched for comparison.
         with open("bus_lines_crew.json", "w", encoding="utf-8") as f:
             json.dump(json.loads(board_decision), f, ensure_ascii=False, indent=4)
         logger.info("Redesigned routes saved to bus_lines_crew.json.")
+        print("AI board complete. Redesigned routes saved to bus_lines_crew.json.")
 
     except Exception as e:
         # Catch network timeouts or API authentication errors gracefully

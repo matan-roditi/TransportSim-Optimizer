@@ -1,5 +1,5 @@
 import pytest
-from db_utils import fetch_travel_times_summary
+from database.db_utils import fetch_travel_times_summary
 
 
 def test_fetch_travel_times_is_string():

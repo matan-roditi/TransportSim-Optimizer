@@ -21,8 +21,8 @@ def fetch_travel_times_summary():
             # We filter by time_bucket=0 to get the baseline driving speeds
             cur.execute("""
                 SELECT 
-                    s1.stop_name AS from_stop, 
-                    s2.stop_name AS to_stop, 
+                    s1.name AS from_stop, 
+                    s2.name AS to_stop, 
                     t.seconds 
                 FROM travel_times t
                 JOIN edges e ON t.edge_id = e.edge_id

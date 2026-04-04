@@ -219,8 +219,6 @@ def render_live_simulation_tab():
         st.warning("No simulation output found. Click the red 'Run Simulation' button above!")
         return
 
-    timeline = sorted(df_logs['time'].unique())
-    
     sim_map = folium.Map(location=[32.1706, 34.823], zoom_start=14, tiles="cartodbpositron")
 
     for stop in get_bus_stops().itertuples(index=False):

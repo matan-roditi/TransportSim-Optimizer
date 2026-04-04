@@ -1,15 +1,16 @@
 import os
 import sys
 import json
-from dotenv import load_dotenv
-from openai import OpenAI
-from crew.rag_retriever import fetch_time_context
-from simulation.config import HERZLIYA_NEIGHBORHOODS
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.abspath(os.path.join(current_dir, "..", "src"))
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
+
+from dotenv import load_dotenv
+from openai import OpenAI
+from crew.rag_retriever import fetch_time_context
+from simulation.config import HERZLIYA_NEIGHBORHOODS
 
 load_dotenv()
 
@@ -67,6 +68,12 @@ VALID NEIGHBORHOODS (use ONLY these exact names):
 
 TASK: Generate exactly {count} realistic passenger trips that align with the contextual facts above.
 Each trip must reflect real commuter patterns for this time of day.
+
+IMPORTANT - departure time spreading:
+- Spread "departing_time" naturally across the full hour from {time_str} to the next hour.
+- Do NOT cluster times at round values like XX:00 or XX:30.
+- Use varied minutes (e.g. :04, :11, :17, :24, :38, :47, :53) to simulate organic arrival patterns.
+- Distribute times so no single minute has more than 2-3 passengers.
 
 Return ONLY a valid JSON array with NO extra text, markdown, or code fences.
 Each element must be a JSON object with exactly these three keys:

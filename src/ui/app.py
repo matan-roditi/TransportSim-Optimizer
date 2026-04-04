@@ -168,12 +168,47 @@ def load_and_parse_logs():
 
 
 def render_live_simulation_tab():
-    # Header row with refresh button
-    hdr_col, refresh_col = st.columns([5, 1])
+    hdr_col, run_col, refresh_col = st.columns([4, 2, 1])
+    
+    # Define a path for our physical stats file
+    STATS_FILE = os.path.join(ROOT_DIR, "last_run_stats.json")
+    
     with hdr_col:
         st.subheader("Live Simulation Viewer")
+        
+    with run_col:
+        if st.button("Run Simulation (bus_lines_save.json)", type="primary", use_container_width=True):
+            with st.spinner("Running simulation engine..."):
+                
+                # Safely clear the log file stream before a fresh run
+                for handler in logging.root.handlers:
+                    if isinstance(handler, logging.FileHandler):
+                        handler.stream.seek(0)
+                        handler.stream.truncate(0)
+                
+                orch = SimulationOrchestrator(
+                    neighborhoods=HERZLIYA_NEIGHBORHOODS, 
+                    routes_file=ROUTES_FILE
+                )
+                
+                while not orch.clock.is_finished():
+                    orch.run_tick()
+                
+                stats = orch.get_stats()
+                st.session_state.human_stats = stats
+                st.session_state.human_orch_passengers = orch.active_passengers
+                
+                # Save the stats permanently to a physical file
+                with open(STATS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(stats, f)
+                
+                load_and_parse_logs.clear()
+                build_simulation_geojson.clear()
+                
+                st.rerun()
+
     with refresh_col:
-        if st.button("Refresh Log", use_container_width=True, help="Re-read simulation_output.log from disk"):
+        if st.button("Refresh Log", use_container_width=True):
             load_and_parse_logs.clear()
             build_simulation_geojson.clear()
             st.rerun()
@@ -181,14 +216,11 @@ def render_live_simulation_tab():
     df_logs = load_and_parse_logs()
 
     if df_logs.empty:
-        st.warning("No simulation output found. Run your simulation script first!")
+        st.warning("No simulation output found. Click the red 'Run Simulation' button above!")
         return
 
     timeline = sorted(df_logs['time'].unique())
-    latest_state = get_simulation_state(df_logs, timeline[-1])
-    active_buses = len(latest_state[latest_state['type'] == 'bus'])
-    active_passengers = len(latest_state[latest_state['type'] == 'passenger'])
-
+    
     sim_map = folium.Map(location=[32.1706, 34.823], zoom_start=14, tiles="cartodbpositron")
 
     for stop in get_bus_stops().itertuples(index=False):
@@ -216,12 +248,40 @@ def render_live_simulation_tab():
         time_slider_drag_update=True,
     ).add_to(sim_map)
 
-    info_col, map_col = st.columns([0.9, 5.1])
+    info_col, map_col = st.columns([1.2, 4.8])
 
     with info_col:
-        st.metric("Frames", len(timeline))
-        st.metric("Last Timestamp", timeline[-1])
-        st.metric("Last Frame Entities", f"🚌 {active_buses}  🚶 {active_passengers}")
+        st.markdown("#### End of Day Stats")
+        
+        # Load stats from file if they are missing from memory
+        if "human_stats" not in st.session_state and os.path.exists(STATS_FILE):
+            with open(STATS_FILE, "r", encoding="utf-8") as f:
+                st.session_state.human_stats = json.load(f)
+        
+        if "human_stats" in st.session_state:
+            stats = st.session_state.human_stats
+            
+            # Display primary high-level metrics including the new Service Rate
+            st.metric("Service Rate", f"{stats.get('service_rate_pct', 0)}%")
+            st.metric("Buses Dispatched", stats.get("buses_dispatched", 0))
+            st.metric("Passengers Deployed", stats.get("passengers_deployed", 0))
+            st.metric("Avg Commute Time", f"{stats.get('avg_commute_time_mins', 0):.1f} min")
+
+            # Draw a clean line to separate the specific breakdown
+            st.divider()
+            st.markdown("**Boardings Per Line:**")
+
+            boarding_keys = [k for k in stats.keys() if k.startswith("avg_boardings_")]
+            # Loop through the dictionary and extract the individual line names and values
+            for key in boarding_keys:
+                line_name = key.replace("avg_boardings_", "")
+                line_value = stats[key]
+                st.caption(f"🚌 {line_name}: {line_value:.1f} avg")
+
+        else:
+            st.info("Run the simulation to calculate final statistics.")
+
+        st.divider()
         st.caption("Use the map's built-in play button and time slider for smooth client-side playback.")
 
     with map_col:

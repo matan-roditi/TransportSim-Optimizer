@@ -1,3 +1,6 @@
+import logging
+import sys
+import altair as alt
 import streamlit as st
 import folium
 from streamlit_folium import st_folium
@@ -6,10 +9,40 @@ import psycopg2
 import os
 import json
 from dotenv import load_dotenv
+
+# Ensure src/ is on the path so sibling packages (simulation, crew) are importable
+# regardless of the working directory Streamlit is launched from.
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from log_parser import parse_simulation_logs, get_simulation_state
 from folium.plugins import TimestampedGeoJson
+from simulation.orchestrator import SimulationOrchestrator
+from simulation.config import HERZLIYA_NEIGHBORHOODS
+from crew.metrics import MetricsCollector
+from crew.board import run_topological_board_meeting
 
 load_dotenv()
+
+# Project root (two levels up from src/ui/app.py) — used for all data file paths
+# so the app works regardless of the working directory Streamlit is launched from.
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+LOG_FILE    = os.path.join(ROOT_DIR, "simulation_output.log")
+ROUTES_FILE = os.path.join(ROOT_DIR, "bus_lines_save.json")
+CREW_FILE   = os.path.join(ROOT_DIR, "bus_lines_crew.json")
+
+# Force Streamlit to write simulation logs to the file so the map can read them
+file_handler = logging.FileHandler(LOG_FILE, mode="a", encoding="utf-8")
+file_handler.setLevel(logging.INFO)
+
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.WARNING)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[file_handler, console_handler],
+    force=True  # Crucial override for Streamlit internal logger
+)
 
 
 @st.cache_data(ttl=300)
@@ -72,8 +105,8 @@ def build_simulation_geojson(df_logs: pd.DataFrame) -> dict:
 
 
 def load_saved_lines():
-    if os.path.exists("bus_lines_save.json"):
-        with open("bus_lines_save.json", "r", encoding="utf-8") as f:
+    if os.path.exists(ROUTES_FILE):
+        with open(ROUTES_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return [
         {"name": "Line 1", "stops": []},
@@ -84,7 +117,7 @@ def load_saved_lines():
 
 
 def save_lines(lines_data):
-    with open("bus_lines_save.json", "w", encoding="utf-8") as f:
+    with open(ROUTES_FILE, "w", encoding="utf-8") as f:
         json.dump(lines_data, f, ensure_ascii=False, indent=4)
 
 
@@ -117,17 +150,18 @@ def get_edge_travel_time(stop_name_a, stop_name_b):
         st.error(f"Error fetching travel time: {e}")
         return None
 
+
 @st.cache_data
 def load_and_parse_logs():
     """Read and parse the simulation log once until the user explicitly refreshes it."""
-    if not os.path.exists("simulation_output.log"):
+    if not os.path.exists(LOG_FILE):
         return pd.DataFrame()
 
     # Stops are cached separately (see @st.cache_data on get_bus_stops)
     stops_df = get_bus_stops()
     stops_dict = {row['name']: (row['lat'], row['lon']) for _, row in stops_df.iterrows()}
 
-    with open("simulation_output.log", "r", encoding="utf-8") as f:
+    with open(LOG_FILE, "r", encoding="utf-8") as f:
         log_lines = f.readlines()
 
     return parse_simulation_logs(log_lines, stops_dict)
@@ -199,6 +233,146 @@ def render_live_simulation_tab():
         )
 
 
+def render_ai_optimizer_tab():
+    st.header("Human vs. AI: Network A/B Testing")
+    st.write("Run the baseline simulation, then let the AI Board attempt to optimize the routes.")
+
+    col1, col2 = st.columns(2)
+
+    # --- LEFT COLUMN: HUMAN BASELINE ---
+    with col1:
+        st.subheader("Baseline (Human Routes)")
+        if st.button("1. Run Baseline Simulation", use_container_width=True):
+            with st.spinner("Simulating human routes (bus_lines_save.json)..."):
+                # Clear out the log file before a fresh run
+                open(LOG_FILE, "w").close()
+                
+                orch = SimulationOrchestrator(neighborhoods=HERZLIYA_NEIGHBORHOODS, routes_file=ROUTES_FILE)
+                while not orch.clock.is_finished():
+                    orch.run_tick()
+                
+                # Save results to session state so they persist
+                st.session_state.human_stats = orch.get_stats()
+                st.session_state.human_orch_passengers = orch.active_passengers
+                st.success("Baseline simulation complete!")
+
+        # Display baseline stats if they exist
+        if "human_stats" in st.session_state:
+            h_stats = st.session_state.human_stats
+            st.metric("Service Rate", f"{h_stats['service_rate_pct']}%")
+            st.metric("Unserved Passengers", h_stats['passengers_unserved'])
+            st.metric("Avg Commute Time", f"{h_stats['avg_commute_time_mins']:.1f} min")
+            st.metric("Avg Walking Time", f"{h_stats['avg_walking_time_mins']:.1f} min")
+            st.metric("Avg Waiting Time", f"{h_stats['avg_waiting_time_mins']:.1f} min")
+
+    # --- RIGHT COLUMN: AI OPTIMIZATION ---
+    with col2:
+        st.subheader("Optimized (AI Routes)")
+        
+        # Button is disabled until the human baseline is run
+        is_disabled = "human_stats" not in st.session_state
+        if st.button("2. Convene AI Board & Simulate", use_container_width=True, disabled=is_disabled):
+            
+            with st.spinner("AI Board is redesigning the network..."):
+                collector = MetricsCollector(LOG_FILE)
+                wait_time_metrics = collector.get_average_wait_times()
+                
+                with open(ROUTES_FILE, encoding="utf-8") as f:
+                    current_lines = json.load(f)
+                    
+                # Build OD failures from the baseline run
+                unserved_od_metrics = {}
+                for p in st.session_state.human_orch_passengers:
+                    key = f"{p.origin_stop} to {p.target_stop}"
+                    unserved_od_metrics[key] = unserved_od_metrics.get(key, 0) + 1
+                    
+                valid_stops_list = get_bus_stops()['name'].tolist()
+
+                # Trigger CrewAI
+                board_decision = run_topological_board_meeting(
+                    current_lines=current_lines,
+                    wait_time_metrics=wait_time_metrics,
+                    unserved_od_metrics=unserved_od_metrics,
+                    valid_stops_list=valid_stops_list
+                )
+                
+                # Save AI routes
+                with open(CREW_FILE, "w", encoding="utf-8") as f:
+                    json.dump(json.loads(board_decision), f, ensure_ascii=False, indent=4)
+                    
+            with st.spinner("Simulating AI routes (bus_lines_crew.json)..."):
+                open(LOG_FILE, "w").close()
+                
+                orch_ai = SimulationOrchestrator(neighborhoods=HERZLIYA_NEIGHBORHOODS, routes_file=CREW_FILE)
+                while not orch_ai.clock.is_finished():
+                    orch_ai.run_tick()
+                
+                st.session_state.ai_stats = orch_ai.get_stats()
+                st.success("AI optimization and simulation complete!")
+
+        # Display AI stats with delta indicators
+        if "ai_stats" in st.session_state:
+            h_stats = st.session_state.human_stats
+            a_stats = st.session_state.ai_stats
+
+            srv_delta      = a_stats['service_rate_pct']    - h_stats['service_rate_pct']
+            unserved_delta = a_stats['passengers_unserved'] - h_stats['passengers_unserved']
+            commute_delta  = a_stats['avg_commute_time_mins'] - h_stats['avg_commute_time_mins']
+            walking_delta  = a_stats['avg_walking_time_mins'] - h_stats['avg_walking_time_mins']
+            wait_delta     = a_stats['avg_waiting_time_mins'] - h_stats['avg_waiting_time_mins']
+
+            st.metric("Service Rate", f"{a_stats['service_rate_pct']}%", delta=f"{srv_delta:.1f}%")
+            st.metric("Unserved Passengers", a_stats['passengers_unserved'], delta=unserved_delta, delta_color="inverse")
+            st.metric("Avg Commute Time", f"{a_stats['avg_commute_time_mins']:.1f} min", delta=f"{commute_delta:.1f} min", delta_color="inverse")
+            st.metric("Avg Walking Time", f"{a_stats['avg_walking_time_mins']:.1f} min", delta=f"{walking_delta:.1f} min", delta_color="inverse")
+            st.metric("Avg Waiting Time", f"{a_stats['avg_waiting_time_mins']:.1f} min", delta=f"{wait_delta:.1f} min",   delta_color="inverse")
+
+    # --- COMPARISON CHART (shown once both runs are done) ---
+    if "human_stats" in st.session_state and "ai_stats" in st.session_state:
+        h_stats = st.session_state.human_stats
+        a_stats = st.session_state.ai_stats
+
+        st.divider()
+        st.subheader("Head-to-Head Comparison")
+
+        comparison_metrics = [
+            ("Service Rate (%)",       float(h_stats["service_rate_pct"]),     float(a_stats["service_rate_pct"])),
+            ("Unserved Passengers",    float(h_stats["passengers_unserved"]),  float(a_stats["passengers_unserved"])),
+            ("Avg Commute (min)",      h_stats["avg_commute_time_mins"],       a_stats["avg_commute_time_mins"]),
+            ("Avg Walking (min)",      h_stats["avg_walking_time_mins"],       a_stats["avg_walking_time_mins"]),
+            ("Avg Waiting (min)",      h_stats["avg_waiting_time_mins"],       a_stats["avg_waiting_time_mins"]),
+        ]
+
+        rows = []
+        for label, h_val, a_val in comparison_metrics:
+            rows.append({"Metric": label, "Route": "Human", "Value": h_val})
+            rows.append({"Metric": label, "Route": "AI",    "Value": a_val})
+        df_cmp = pd.DataFrame(rows)
+
+        chart = (
+            alt.Chart(df_cmp)
+            .mark_bar()
+            .encode(
+                x=alt.X("Route:N", axis=alt.Axis(title=None, labelAngle=0), sort=["Human", "AI"]),
+                y=alt.Y("Value:Q", axis=alt.Axis(title=None)),
+                color=alt.Color(
+                    "Route:N",
+                    scale=alt.Scale(domain=["Human", "AI"], range=["#4C78A8", "#F58518"]),
+                    legend=alt.Legend(orient="bottom"),
+                ),
+                tooltip=[
+                    alt.Tooltip("Metric:N"),
+                    alt.Tooltip("Route:N"),
+                    alt.Tooltip("Value:Q", format=".2f"),
+                ],
+            )
+            .properties(width=140, height=180)
+            .facet(facet=alt.Facet("Metric:N", title=None), columns=5)
+            .resolve_scale(y="independent")
+        )
+        st.altair_chart(chart, use_container_width=True)
+
+
 def main():
     st.set_page_config(page_title="Herzliya Map", layout="wide")
 
@@ -225,9 +399,8 @@ def main():
         st.session_state.active_line_index = None
 
     st.title("Herzliya Transit Command Center")
-    
-    # Create the dual-mode interface
-    tab1, tab2 = st.tabs(["Route Builder", "Live Simulation"])
+
+    tab1, tab2, tab3 = st.tabs(["Route Builder", "Live Simulation", "AI Optimizer"])
 
     # ==========================================
     # TAB 1: THE INTERACTIVE ROUTE BUILDER
@@ -334,6 +507,12 @@ def main():
     # ==========================================
     with tab2:
         render_live_simulation_tab()
+
+    # ==========================================
+    # TAB 3: AI OPTIMIZER & A/B TESTING     
+    # ==========================================
+    with tab3:
+        render_ai_optimizer_tab()
 
 
 if __name__ == "__main__":

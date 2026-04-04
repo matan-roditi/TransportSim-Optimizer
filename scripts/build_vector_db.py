@@ -4,7 +4,7 @@ import chromadb
 # Setup paths for data and database storage
 current_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.abspath(os.path.join(current_dir, ".."))
-data_file = os.path.join(root_dir, "data", "herzliya_patterns.txt")
+data_file = os.path.join(root_dir, "src", "data", "herzliya_patterns.txt")
 db_path = os.path.join(root_dir, "chroma_db")
 
 

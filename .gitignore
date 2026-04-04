@@ -15,6 +15,9 @@ herzliya_demand.json
 bus_lines_crew.json
 last_run_stats.json
 
+# --- Vector Database ---
+chroma_db/
+
 # --- Generated transport simulation data ---
 src/database/*.csv
 src/database/*.sqlite

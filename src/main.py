@@ -13,18 +13,23 @@ from crew.board import run_topological_board_meeting
 
 load_dotenv()
 
-# Configure logging to write to both a file and the console
-# File handler captures everything (INFO+); console only shows warnings and above
-_file_handler = logging.FileHandler("simulation_output.log", mode="w", encoding="utf-8")
-_file_handler.setLevel(logging.INFO)
+# Absolute path to the project root — ensures all file I/O works regardless
+# of which directory main.py is invoked from.
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-_console_handler = logging.StreamHandler(sys.stdout)
-_console_handler.setLevel(logging.WARNING)
+LOG_FILE      = os.path.join(ROOT_DIR, "simulation_output.log")
+DEMAND_FILE   = os.path.join(ROOT_DIR, "herzliya_demand.json")
+ROUTES_FILE   = os.path.join(ROOT_DIR, "bus_lines_save.json")
+CREW_FILE     = os.path.join(ROOT_DIR, "bus_lines_crew.json")
+DEMAND_SCRIPT = os.path.join(ROOT_DIR, "scripts", "generate_llm_demand.py")
 
+# Configure logging to write only to the file — no console output
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[_file_handler, _console_handler]
+    handlers=[
+        logging.FileHandler(LOG_FILE, mode="w", encoding="utf-8")
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -36,16 +41,16 @@ def run_simulation():
     """
     logger.info("Starting Herzliya Transit Simulation Engine...")
 
-    if not os.path.exists("herzliya_demand.json"):
+    if not os.path.exists(DEMAND_FILE):
         logger.warning("Demand file 'herzliya_demand.json' not found! Booting up the LLM generator...")
         try:
-            subprocess.run([sys.executable, "scripts/generate_llm_demand.py"], check=True)
+            subprocess.run([sys.executable, DEMAND_SCRIPT], check=True)
             logger.info("Demand generation complete. Resuming simulation startup.")
         except subprocess.CalledProcessError as e:
             logger.error(f"Fatal error during LLM generation: {e}")
             return
 
-    orchestrator = SimulationOrchestrator(neighborhoods=HERZLIYA_NEIGHBORHOODS)
+    orchestrator = SimulationOrchestrator(neighborhoods=HERZLIYA_NEIGHBORHOODS, routes_file=ROUTES_FILE)
 
     logger.info(f"Simulation initialized. Service window: {orchestrator.clock.current_dt.strftime('%H:%M')} - {orchestrator.clock.end_dt.strftime('%H:%M')}")
 
@@ -83,11 +88,11 @@ def run_simulation():
 
     try:
         # Initialize the collector and extract the simulated day data
-        collector = MetricsCollector("simulation_output.log")
+        collector = MetricsCollector(LOG_FILE)
         wait_time_metrics = collector.get_average_wait_times()
 
         # Load the baseline routes that ran during this simulation
-        with open("bus_lines_save.json", encoding="utf-8") as f:
+        with open(ROUTES_FILE, encoding="utf-8") as f:
             current_lines = json.load(f)
 
         # Build an OD failure map from passengers still stranded at end of service
@@ -118,10 +123,10 @@ def run_simulation():
 
         # Write the AI-redesigned routes to a separate file, keeping the original
         # human-authored routes in bus_lines_save.json untouched for comparison.
-        with open("bus_lines_crew.json", "w", encoding="utf-8") as f:
+        with open(CREW_FILE, "w", encoding="utf-8") as f:
             json.dump(json.loads(board_decision), f, ensure_ascii=False, indent=4)
         logger.info("Redesigned routes saved to bus_lines_crew.json.")
-        print("AI board complete. Redesigned routes saved to bus_lines_crew.json.")
+        print(f"AI board complete. Redesigned routes saved to {CREW_FILE}.")
 
     except Exception as e:
         # Catch network timeouts or API authentication errors gracefully

@@ -1,5 +1,20 @@
-Reichman University holds most morning classes starting at 08:30, creating heavy student traffic from residential areas to the campus.
-Herzliya Pituach is a major tech hub where workers commute heavily between 07:30 and 09:30.
-The Seven Stars Mall sees peak shopping traffic between 16:00 and 19:00.
-The Herzliya Train Station brings in large waves of commuters from Tel Aviv every 30 minutes during morning and evening rush hours.
-The Marina area attracts tourists and locals for leisure primarily in the late afternoons and evenings.
+Residents of eastern neighborhoods like Neve Amal and Yad HaTisha generate strong early morning outbound traffic toward the city center and western industrial zones starting at 07:00.
+The Herzliya Train Station experiences massive surges every 30 minutes in the morning as out-of-city commuters arrive and immediately require bus transit west toward the Herzliya Pituach business hub.
+High school students across residential neighborhoods like Green Herzliya and Neve Amirim travel primarily between 07:30 and 08:00, creating short, sharp spikes in local bus ridership.
+Commuters living in central areas like City Center and Shikun Darom travel west towards the industrial zone between 08:00 and 09:30.
+Reichman University, located near the city center, draws steady streams of local students from surrounding neighborhoods like Young Herzliya throughout the morning and midday.
+Mid-morning transit (10:00 to 12:00) is dominated by senior citizens and off-peak shoppers traveling from residential blocks to clinics and central services on Sokolov Street.
+Residents of the upscale western neighborhoods like Nof Yam and Herzliya B utilize public transit less frequently, relying more on private vehicles for internal movement.
+The Seven Stars Mall acts as a major midday and afternoon anchor, drawing service workers and shoppers from all eastern and central neighborhoods.
+Afternoon school dismissals around 14:00 to 15:00 create a reverse flow of students returning from central educational facilities back to neighborhoods like Neve Oved and Gan Rashal.
+Evening rush hour (17:00 to 19:00) sees a heavy concentration of local tech workers commuting east from Herzliya Pituach back to residential zones.
+Simultaneously, out-of-city workers leave the Herzliya Pituach business hub, creating massive eastbound bottlenecks as they flood back toward the Herzliya Train Station.
+The Marina and beachfront attract a steady flow of internal leisure traffic from central and eastern neighborhoods beginning in the late afternoon.
+Sokolov Street, the main commercial artery, maintains a high volume of short-distance, hop-on-hop-off bus ridership throughout the day as residents run local errands.
+Evening transit (19:00 to 21:00) shifts towards younger demographics traveling from residential areas toward entertainment venues in the Marina and industrial zone.
+Neighborhoods like Galil Yam, being newer and densely populated, generate concentrated waves of morning commuters heading toward both the train station and local tech parks.
+Medical centers and clinics situated around the city center cause a continuous, low-volume trickle of internal transit demand from all peripheral neighborhoods during business hours.
+Nighttime transit demand drops sharply in eastern residential areas like Neve Amal and Yad HaTisha after 21:00.
+Domestic workers and caregivers traveling to western neighborhoods like Herzliya Pituach and Nof Yam create specific early morning and late afternoon transit micro-patterns.
+Cross-city movement from the deep east to the deep west requires navigating through the congested city center, often slowing down cross-town public transit routes.
+Throughout the average weekday, the internal transit system acts as a constant circulatory system, balancing the heavy east-west work commutes with localized, multi-directional neighborhood errands.

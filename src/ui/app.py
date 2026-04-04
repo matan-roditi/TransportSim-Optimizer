@@ -286,7 +286,7 @@ def render_live_simulation_tab():
         st_folium(
             sim_map,
             height=560,
-            use_container_width=True,
+            width="stretch",
             key="simulation_timestamped_map",
         )
 

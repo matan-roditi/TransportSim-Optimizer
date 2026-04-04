@@ -7,10 +7,10 @@ src_dir = os.path.abspath(os.path.join(current_dir, "..", "src"))
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
-from dotenv import load_dotenv
-from openai import OpenAI
-from crew.rag_retriever import fetch_time_context
-from simulation.config import HERZLIYA_NEIGHBORHOODS
+from dotenv import load_dotenv  # noqa: E402
+from openai import OpenAI  # noqa: E402
+from crew.rag_retriever import fetch_time_context  # noqa: E402
+from simulation.config import HERZLIYA_NEIGHBORHOODS  # noqa: E402
 
 load_dotenv()
 

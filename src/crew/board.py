@@ -47,7 +47,7 @@ def run_topological_board_meeting(current_lines, wait_time_metrics, unserved_od_
         agents=[advocate, analyst, architect],
         tasks=[audit_task, analysis_task, redesign_task],
         process=Process.sequential,
-        verbose=True
+        verbose=False  # Set to True for detailed logs of the board meeting
     )
 
     # Execute the board meeting

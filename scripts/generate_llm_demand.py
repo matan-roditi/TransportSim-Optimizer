@@ -1,100 +1,140 @@
 import os
+import sys
 import json
-import logging
-from openai import OpenAI
 from dotenv import load_dotenv
+from openai import OpenAI
+from crew.rag_retriever import fetch_time_context
+from simulation.config import HERZLIYA_NEIGHBORHOODS
 
-# Configure the logger to format messages with timestamps
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.abspath(os.path.join(current_dir, "..", "src"))
+if src_dir not in sys.path:
+    sys.path.insert(0, src_dir)
 
-# Load environment variables from a .env file to secure the API key
 load_dotenv()
 
-# Initialize the OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+ROOT_DIR = os.path.abspath(os.path.join(current_dir, ".."))
+OUTPUT_FILE = os.path.join(ROOT_DIR, "herzliya_demand.json")
+
+# All valid neighborhood names — must match simulation/config.py exactly
+VALID_NEIGHBORHOODS = HERZLIYA_NEIGHBORHOODS
+
+# (start_time, passenger_count) — counts reflect realistic commuter demand curves:
+# morning peak 07:00-09:00, evening peak 16:00-18:00, quiet midday and late evening
+TIME_SLOTS = [
+    ("06:00", 15),
+    ("07:00", 30),
+    ("08:00", 45),
+    ("09:00", 30),
+    ("10:00", 15),
+    ("11:00", 10),
+    ("12:00", 15),
+    ("13:00", 20),
+    ("14:00", 15),
+    ("15:00", 20),
+    ("16:00", 35),
+    ("17:00", 45),
+    ("18:00", 30),
+    ("19:00", 20),
+    ("20:00", 10),
+    ("21:00",  5),
+]
 
 
-def generate_herzliya_demand_matrix() -> None:
-    """
-    Prompts the LLM to generate a realistic daily commute schedule for Herzliya.
-    Saves the output to a JSON file to be consumed by the simulation.
-    """
-    logger.info("Connecting to the LLM to generate Herzliya commute data...")
+def build_augmented_prompt(time_str: str, count: int) -> str:
+    # Fetch real-world behavioral context from the ChromaDB vector store
+    context = fetch_time_context(time_str)
+    context_block = context if context else "Standard traffic flow, no special events."
 
-    # We ask for a specific JSON object structure to ensure perfect parsing
-    # The neighborhood list has been expanded to cover the entire city
-    prompt = """
-    You are an expert urban mobility data generator modeling the daily commute patterns of Herzliya, Israel. 
+    neighborhoods_str = ", ".join(VALID_NEIGHBORHOODS)
 
-    Generate a realistic travel demand matrix for an average weekday from 06:00 to 22:00. 
-    Generate exactly 500 passenger objects when each passenger object represents 200 real Herzliya citizens in the simulation.
-    Consider Herzliya's specific geography, such as morning commutes toward the tech hubs in Pituach and evening returns to residential zones.
-    Note that some of the population goes in the morning to the train station and to Herzliya_Pituach_Business, and returns from there in the evening.
-    Note the distinction between "Herzliya_Pituach" (the beachside residential strip) and "Herzliya_Pituach_Business" (the tech/business park).
-    Midday trips should be fewer and more mixed.
-    Residential neighborhoods should dominate as origins in the morning and destinations in the evening.
-    Each passenger object must include:
-    - departing_time: The time they start their commute (HH:MM format)
-    - origin_neighborhood: The neighborhood they depart from
-    - destination_neighborhood: The neighborhood they are heading to    
+    prompt = f"""You are an urban transit generator creating passenger data for Herzliya around {time_str}.
 
-    You must strictly limit locations to the following exact neighborhood names:
-    [
-        "Herzliya_Pituach", "Herzliya_Pituach_Business", "Marina", "Nof_Yam", "Herzliya_B", 
-        "Green_Herzliya", "Young_Herzliya", "Galil_Yam", "City_Center", 
-        "Neve_Yisrael", "Neve_Amirim", "Shikun_Darom", "Neve_Amal", 
-        "Yad_HaTisha", "Gan_Rashal", "Neve_Oved", "Train_Station"
-    ]
+CONTEXTUAL FACTS:
+{context_block}
 
-    You must return ONLY a valid JSON object with a single key called "passengers". 
-    The value must be an array of objects. Do not include any conversational text or markdown formatting. 
+VALID NEIGHBORHOODS (use ONLY these exact names):
+{neighborhoods_str}
 
-    The JSON schema must be exactly:
-    {
-      "passengers": [
-        {
-          "departing_time": "HH:MM",
-          "origin_neighborhood": "string",
-          "destination_neighborhood": "string"
-        }
-      ]
-    }
-    """
+TASK: Generate exactly {count} realistic passenger trips that align with the contextual facts above.
+Each trip must reflect real commuter patterns for this time of day.
 
-    try:
-        response = client.chat.completions.create(
-            model="gpt-5.4-mini",
-            response_format={ "type": "json_object" },
-            messages=[
-                {"role": "system", "content": "You are a data output system that only returns pure, raw JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
+Return ONLY a valid JSON array with NO extra text, markdown, or code fences.
+Each element must be a JSON object with exactly these three keys:
+  "departing_time": "HH:MM"  (string, between {time_str} and the next hour)
+  "origin_neighborhood": one of the valid neighborhoods above
+  "destination_neighborhood": one of the valid neighborhoods above (must differ from origin)
 
-        raw_json_string = response.choices[0].message.content
+Example:
+[
+  {{"departing_time": "{time_str}", "origin_neighborhood": "Herzliya_B", "destination_neighborhood": "Train_Station"}}
+]
+"""
+    return prompt
 
-        # Parse the string into a Python dictionary to verify it is valid JSON
-        if raw_json_string is None:
-            raise ValueError("Received empty response from the API.")
 
-        demand_data = json.loads(raw_json_string)
+def generate_demand_for_slot(client: OpenAI, time_str: str, count: int) -> list:
+    prompt = build_augmented_prompt(time_str, count)
 
-        output_path = "herzliya_demand.json"
+    response = client.chat.completions.create(
+        model=os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini"),
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.8,
+    )
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(demand_data, f, indent=4)
+    raw = response.choices[0].message.content.strip()
 
-        logger.info(f"Success! Generated {len(demand_data['passengers'])} passenger batches.")
-        logger.info(f"Data saved safely to {output_path}")
+    # Strip markdown code fences if the model wraps its response in ```json ... ```
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
 
-    except Exception as e:
-        logger.error(f"An error occurred during generation: {e}")
+    passengers = json.loads(raw)
+
+    # Validate each entry: required keys, valid neighborhood names, no self-trips
+    valid = []
+    for p in passengers:
+        if (
+            isinstance(p, dict)
+            and "departing_time" in p
+            and "origin_neighborhood" in p
+            and "destination_neighborhood" in p
+            and p["origin_neighborhood"] in VALID_NEIGHBORHOODS
+            and p["destination_neighborhood"] in VALID_NEIGHBORHOODS
+            and p["origin_neighborhood"] != p["destination_neighborhood"]
+        ):
+            valid.append(p)
+
+    return valid
+
+
+def generate_demand() -> None:
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    all_passengers: list = []
+
+    print(f"Starting LLM demand generation across {len(TIME_SLOTS)} time slots...")
+
+    for time_str, count in TIME_SLOTS:
+        try:
+            print(f"  Generating {count} passengers for {time_str}...", flush=True)
+            batch = generate_demand_for_slot(client, time_str, count)
+            all_passengers.extend(batch)
+            print(f"  {time_str}: {len(batch)} valid passengers collected.")
+        except Exception as e:
+            # Log and continue — a single failed slot should not abort the whole run
+            print(f"  WARNING: Failed to generate slot {time_str}: {e}. Skipping.")
+
+    # Sort chronologically so the demand file reads cleanly
+    all_passengers.sort(key=lambda p: p["departing_time"])
+
+    output = {"passengers": all_passengers}
+    with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=4)
+
+    print(f"\nDemand generation complete. {len(all_passengers)} passengers written to {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
-    generate_herzliya_demand_matrix()
+    generate_demand()

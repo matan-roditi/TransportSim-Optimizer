@@ -19,26 +19,35 @@ OUTPUT_FILE = os.path.join(ROOT_DIR, "herzliya_demand.json")
 # All valid neighborhood names — must match simulation/config.py exactly
 VALID_NEIGHBORHOODS = HERZLIYA_NEIGHBORHOODS
 
-# (start_time, passenger_count) — counts reflect realistic commuter demand curves:
-# morning peak 07:00-09:00, evening peak 16:00-18:00, quiet midday and late evening
-TIME_SLOTS = [
-    ("06:00", 15),
-    ("07:00", 30),
-    ("08:00", 45),
-    ("09:00", 30),
-    ("10:00", 15),
-    ("11:00", 10),
-    ("12:00", 15),
-    ("13:00", 20),
-    ("14:00", 15),
-    ("15:00", 20),
-    ("16:00", 35),
-    ("17:00", 45),
-    ("18:00", 30),
-    ("19:00", 20),
-    ("20:00", 10),
-    ("21:00",  5),
-]
+# --- Demand configuration ---
+START_HOUR = 6       # 06:00
+END_HOUR = 22        # up to but not including 22:00
+TOTAL_PASSENGERS = 600
+
+# Relative demand weights per hour — reflects morning peak (07-09), evening peak (16-18)
+_DEMAND_WEIGHTS = {
+    6: 1, 7: 3, 8: 5, 9: 3, 10: 1.5, 11: 1, 12: 1.5,
+    13: 2, 14: 1.5, 15: 2, 16: 4, 17: 5, 18: 3, 19: 2, 20: 1, 21: 0.5,
+}
+
+
+def _build_time_slots() -> list:
+    hours = list(range(START_HOUR, END_HOUR))
+    weights = [_DEMAND_WEIGHTS.get(h, 1) for h in hours]
+    total_weight = sum(weights)
+    slots = []
+    assigned = 0
+    for i, h in enumerate(hours):
+        if i == len(hours) - 1:
+            count = TOTAL_PASSENGERS - assigned
+        else:
+            count = round(TOTAL_PASSENGERS * weights[i] / total_weight)
+        assigned += count
+        slots.append((f"{h:02d}:00", count))
+    return slots
+
+
+TIME_SLOTS = _build_time_slots()
 
 
 def build_augmented_prompt(time_str: str, count: int) -> str:
@@ -77,9 +86,8 @@ def generate_demand_for_slot(client: OpenAI, time_str: str, count: int) -> list:
     prompt = build_augmented_prompt(time_str, count)
 
     response = client.chat.completions.create(
-        model=os.getenv("OPENAI_MODEL_NAME", "gpt-4o-mini"),
+        model=os.getenv("OPENAI_MODEL_NAME", "gpt-5-mini"),
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.8,
     )
 
     raw = response.choices[0].message.content.strip()

@@ -97,7 +97,10 @@ def generate_demand_for_slot(client: OpenAI, time_str: str, count: int) -> list:
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = response.choices[0].message.content.strip()
+    content = response.choices[0].message.content
+    if content is None:
+        raise ValueError("LLM returned empty response.")
+    raw = content.strip()
 
     # Strip markdown code fences if the model wraps its response in ```json ... ```
     if raw.startswith("```"):

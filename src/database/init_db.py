@@ -15,14 +15,16 @@ def create_cloud_tables():
         password=os.environ["PG_PASSWORD"]
     )
     
-    # Auto-commit ensures the tables are saved immediately without needing a manual commit
     conn.autocommit = True
     
     try:
         with conn.cursor() as cur:
+
+            cur.execute("DROP TABLE IF EXISTS travel_times, edges, stops CASCADE;")
+            
             # Construct the stops table
             cur.execute("""
-            CREATE TABLE IF NOT EXISTS stops (
+            CREATE TABLE stops (
                 stop_id INT PRIMARY KEY,
                 name VARCHAR(255),
                 lat FLOAT,
@@ -30,19 +32,19 @@ def create_cloud_tables():
             );
             """)
             
-            # Construct the edges table
+            # Construct the edges table (Fixed: distance_m)
             cur.execute("""
-            CREATE TABLE IF NOT EXISTS edges (
+            CREATE TABLE edges (
                 edge_id SERIAL PRIMARY KEY,
                 from_stop_id INT REFERENCES stops(stop_id),
                 to_stop_id INT REFERENCES stops(stop_id),
-                distance FLOAT
+                distance_m FLOAT
             );
             """)
             
             # Construct the travel times table
             cur.execute("""
-            CREATE TABLE IF NOT EXISTS travel_times (
+            CREATE TABLE travel_times (
                 id SERIAL PRIMARY KEY,
                 edge_id INT REFERENCES edges(edge_id),
                 time_bucket INT,
@@ -50,7 +52,7 @@ def create_cloud_tables():
             );
             """)
             
-            print("Successfully created the schema in the Neon cloud database!")
+            print("Successfully recreated the schema in the Neon cloud database!")
             
     except Exception as e:
         print(f"Failed to create tables: {e}")

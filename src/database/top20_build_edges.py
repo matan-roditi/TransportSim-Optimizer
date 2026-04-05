@@ -41,7 +41,7 @@ def main() -> None:
         raise ValueError(f"CSV missing columns: {missing}")
 
     # k-nearest neighbors per stop (directed)
-    k = 7
+    k = 8
 
     conn = psycopg2.connect(
         host=PG_HOST,

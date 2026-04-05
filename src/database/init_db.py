@@ -19,7 +19,7 @@ def create_cloud_tables():
     
     try:
         with conn.cursor() as cur:
-
+            # Wipe the old tables cleanly before rebuilding
             cur.execute("DROP TABLE IF EXISTS travel_times, edges, stops CASCADE;")
             
             # Construct the stops table
@@ -32,13 +32,14 @@ def create_cloud_tables():
             );
             """)
             
-            # Construct the edges table (Fixed: distance_m)
+            # Construct the edges table
             cur.execute("""
             CREATE TABLE edges (
                 edge_id SERIAL PRIMARY KEY,
                 from_stop_id INT REFERENCES stops(stop_id),
                 to_stop_id INT REFERENCES stops(stop_id),
-                distance_m FLOAT
+                distance_m FLOAT,
+                UNIQUE (from_stop_id, to_stop_id)
             );
             """)
             
@@ -48,7 +49,8 @@ def create_cloud_tables():
                 id SERIAL PRIMARY KEY,
                 edge_id INT REFERENCES edges(edge_id),
                 time_bucket INT,
-                seconds FLOAT
+                seconds FLOAT,
+                UNIQUE (edge_id, time_bucket)
             );
             """)
             

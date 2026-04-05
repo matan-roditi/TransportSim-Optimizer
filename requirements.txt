@@ -6,7 +6,6 @@ geopandas
 shapely
 
 # --- External APIs ---
-googlemaps 
 python-dotenv
 
 pandas

@@ -1,21 +1,25 @@
 from __future__ import annotations
 
+import os
 from math import radians, sin, cos, asin, sqrt
 from pathlib import Path
 
 import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_values
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
 IN_FILE = BASE_DIR / "herzliya_top20_selected.csv"
 
-# PostgreSQL connection parameters
-PG_HOST = "localhost"
-PG_PORT = 5432
-PG_DB = "transportsim"
-PG_USER = "transportsim"
-PG_PASSWORD = "change_me"
+# PostgreSQL connection parameters (loaded from .env)
+PG_HOST = os.getenv("PG_HOST", "localhost")
+PG_PORT = int(os.getenv("PG_PORT", "5432"))
+PG_DB = os.getenv("PG_DB", "transportsim")
+PG_USER = os.getenv("PG_USER", "transportsim")
+PG_PASSWORD = os.getenv("PG_PASSWORD", "")
 
 
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

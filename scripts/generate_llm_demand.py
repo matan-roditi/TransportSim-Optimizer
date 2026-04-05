@@ -1,18 +1,25 @@
 import os
 import sys
 import json
+import logging
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 src_dir = os.path.abspath(os.path.join(current_dir, "..", "src"))
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
 from dotenv import load_dotenv  # noqa: E402
 from openai import OpenAI  # noqa: E402
 from crew.rag_retriever import fetch_time_context  # noqa: E402
 from simulation.config import HERZLIYA_NEIGHBORHOODS  # noqa: E402
+from scale_demand import scale_passengers  # noqa: E402
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 ROOT_DIR = os.path.abspath(os.path.join(current_dir, ".."))
 OUTPUT_FILE = os.path.join(ROOT_DIR, "herzliya_demand.json")
@@ -132,17 +139,17 @@ def generate_demand() -> None:
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     all_passengers: list = []
 
-    print(f"Starting LLM demand generation across {len(TIME_SLOTS)} time slots...")
+    logger.info(f"Starting LLM demand generation across {len(TIME_SLOTS)} time slots...")
 
     for time_str, count in TIME_SLOTS:
         try:
-            print(f"  Generating {count} passengers for {time_str}...", flush=True)
+            logger.info(f"Generating {count} passengers for {time_str}...")
             batch = generate_demand_for_slot(client, time_str, count)
             all_passengers.extend(batch)
-            print(f"  {time_str}: {len(batch)} valid passengers collected.")
+            logger.info(f"{time_str}: {len(batch)} valid passengers collected.")
         except Exception as e:
-            # Log and continue — a single failed slot should not abort the whole run
-            print(f"  WARNING: Failed to generate slot {time_str}: {e}. Skipping.")
+            # Log the warning and continue a single failed slot should not abort the whole run
+            logger.warning(f"Failed to generate slot {time_str}: {e}. Skipping.")
 
     # Sort chronologically so the demand file reads cleanly
     all_passengers.sort(key=lambda p: p["departing_time"])
@@ -151,8 +158,15 @@ def generate_demand() -> None:
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(output, f, ensure_ascii=False, indent=4)
 
-    print(f"\nDemand generation complete. {len(all_passengers)} passengers written to {OUTPUT_FILE}")
+    logger.info(f"Demand generation complete. {len(all_passengers)} passengers written to {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
+    # Generate the baseline passengers using the LLM and RAG
     generate_demand()
+
+    # Automatically trigger the mathematical scaler
+    logger.info("Baseline generation complete. Triggering the mathematical extrapolator...")
+    
+    # Import the scaling function directly from the sibling script
+    scale_passengers()

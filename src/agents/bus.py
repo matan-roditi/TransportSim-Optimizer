@@ -34,6 +34,7 @@ class BusAgent:
         self.is_moving: bool = False
         self.ticks_until_arrival: int = 0
         self._route_complete: bool = False
+        self.reverse_dispatched: bool = False
 
         # logger.info(f"Bus {bus_id} created for Line {self.navigator.line_id}")
 

@@ -243,7 +243,7 @@ class SimulationOrchestrator:
                     )
 
             # Check if the bus has reached the end of its route
-            if not next_stop and not getattr(bus, 'reverse_dispatched', False):
+            if not next_stop and not bus.reverse_dispatched:
                 # Apply the safety flag to prevent infinite dispatching loops
                 bus.reverse_dispatched = True
                 current_line_id = bus.route_data.get("line_id", "")

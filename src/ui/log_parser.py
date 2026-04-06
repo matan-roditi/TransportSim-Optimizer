@@ -14,8 +14,8 @@ def parse_simulation_logs(log_lines, stops_dict):
     # Regex patterns to extract specific data from the log strings
     time_pattern = re.compile(r'\[(\d{2}:\d{2})\]')
     passenger_pattern = re.compile(r'(passenger #\d+) deployed with origin:\(([\d.]+),\s*([\d.]+)\)')
-    # Matches the bus ID and the stop name right before the "|" character
-    bus_pattern = re.compile(r'(Bus_Line[a-zA-Z0-9_]+) at ([^|]+)\s*\|')
+    # Matches the bus ID, stop name, and on-board passenger count from the pipe-delimited log line
+    bus_pattern = re.compile(r'(Bus_Line[a-zA-Z0-9_]+) at ([^|]+)\s*\|.*?On-board:\s*(\d+)')
 
     # --- Completion patterns ---
     # "[06:12] Bus_Line1_0600 completed forward route"
@@ -88,7 +88,8 @@ def parse_simulation_logs(log_lines, stops_dict):
                 'entity_id': entity_id,
                 'lat': lat,
                 'lon': lon,
-                'icon': '🚶'
+                'icon': '🚶',
+                'passenger_count': 0,
             })
             continue
 
@@ -97,6 +98,7 @@ def parse_simulation_logs(log_lines, stops_dict):
         if bus_match:
             entity_id = bus_match.group(1)
             stop_name = bus_match.group(2).strip()
+            on_board = int(bus_match.group(3))
 
             # Cross-reference the stop name with our GPS dictionary
             if stop_name in stops_dict:
@@ -107,7 +109,8 @@ def parse_simulation_logs(log_lines, stops_dict):
                     'entity_id': entity_id,
                     'lat': lat,
                     'lon': lon,
-                    'icon': '🚌'
+                    'icon': '🚌',
+                    'passenger_count': on_board,
                 })
 
     return pd.DataFrame(parsed_data)

@@ -8,6 +8,7 @@ import pandas as pd
 import psycopg2
 import os
 import json
+from urllib.parse import quote
 from dotenv import load_dotenv
 
 # Ensure src/ is on the path so sibling packages (simulation, crew) are importable
@@ -67,6 +68,44 @@ def build_simulation_geojson(df_logs: pd.DataFrame) -> dict:
     if df_logs.empty:
         return {"type": "FeatureCollection", "features": []}
 
+    import re as _re
+
+    def _line_label(entity_id: str) -> str:
+        """Derive a short Hebrew line label from a bus entity_id.
+        e.g. Bus_Line1_0600 → קו1   |   Bus_Line2Reverse_0800 → קו2ר
+        """
+        m = _re.search(r'Bus_Line(\w+?)(?:Reverse)?_\d{4}$', entity_id)
+        if not m:
+            return ""
+        num = _re.search(r'\d+', m.group(0).replace("Bus_Line", ""))
+        line_num = num.group(0) if num else "?"
+        is_reverse = "Reverse" in entity_id
+        return f"קו{line_num}{'ר' if is_reverse else ''}"
+
+    def _emoji_icon_url(emoji: str, size: int = 26, top_label: str = "", bottom_label: str = "") -> str:
+        """Encode an emoji with optional labels above and below into an SVG data URI."""
+        top_h    = 13 if top_label    else 0
+        bottom_h = 13 if bottom_label else 0
+        total_h  = top_h + size + bottom_h
+        emoji_y  = top_h + size - 2          # baseline of the emoji text
+
+        parts = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{total_h}">']
+        if top_label:
+            parts.append(
+                f'<text x="{size // 2}" y="11" font-size="11" '
+                f'text-anchor="middle" fill="#0055cc" font-weight="bold">{top_label}</text>'
+            )
+        parts.append(f'<text y="{emoji_y}" font-size="{size - 2}">{emoji}</text>')
+        if bottom_label:
+            parts.append(
+                f'<text x="{size // 2}" y="{total_h - 1}" font-size="10" '
+                f'text-anchor="middle" fill="#1a1a1a" font-weight="bold">{bottom_label}</text>'
+            )
+        parts.append("</svg>")
+        return "data:image/svg+xml," + quote("".join(parts))
+
+    PASSENGER_ICON_URL = _emoji_icon_url("\U0001F9CD")  # 🧍 — static, no label needed
+
     features = []
     timeline = sorted(df_logs['time'].unique())
 
@@ -76,8 +115,14 @@ def build_simulation_geojson(df_logs: pd.DataFrame) -> dict:
 
         for _, row in state_df.iterrows():
             is_bus = row['type'] == 'bus'
-            radius = 8 if is_bus else 5
-            fill_color = '#0078FF' if is_bus else '#FF5050'
+            if is_bus:
+                count      = int(row['passenger_count']) if 'passenger_count' in row.index else 0
+                line_label = _line_label(row['entity_id'])
+                icon_url   = _emoji_icon_url("\U0001F68C", top_label=line_label, bottom_label=f"{count}/50")  # 🚌
+                icon_size  = [28, 52]
+            else:
+                icon_url  = PASSENGER_ICON_URL
+                icon_size = [22, 22]
 
             features.append({
                 "type": "Feature",
@@ -87,14 +132,11 @@ def build_simulation_geojson(df_logs: pd.DataFrame) -> dict:
                 },
                 "properties": {
                     "times": [timestamp],
-                    "icon": "circle",
+                    "icon": "marker",
                     "iconstyle": {
-                        "fillColor": fill_color,
-                        "fillOpacity": 0.9,
-                        "stroke": True,
-                        "color": "#1F1F1F",
-                        "weight": 1,
-                        "radius": radius,
+                        "iconUrl": icon_url,
+                        "iconSize": icon_size,
+                        "iconAnchor": [icon_size[0] // 2, icon_size[1] // 2],
                     },
                     "popup": row['entity_id'],
                     "tooltip": row['entity_id'],
@@ -288,6 +330,21 @@ def render_live_simulation_tab():
             height=560,
             width="stretch",
             key="simulation_timestamped_map",
+        )
+        st.markdown(
+            """
+            <div style="font-size:12px; color:#555; margin-top:6px; line-height:1.8;">
+            קו&nbsp;1 = Line&nbsp;1 &nbsp;|&nbsp;
+            קו&nbsp;2 = Line&nbsp;2 &nbsp;|&nbsp;
+            קו&nbsp;3 = Line&nbsp;3 &nbsp;|&nbsp;
+            קו&nbsp;4 = Line&nbsp;4 &nbsp;|&nbsp;
+            קו&nbsp;1ר = Line&nbsp;1&nbsp;Reverse &nbsp;|&nbsp;
+            קו&nbsp;2ר = Line&nbsp;2&nbsp;Reverse &nbsp;|&nbsp;
+            קו&nbsp;3ר = Line&nbsp;3&nbsp;Reverse &nbsp;|&nbsp;
+            קו&nbsp;4ר = Line&nbsp;4&nbsp;Reverse
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
 
 

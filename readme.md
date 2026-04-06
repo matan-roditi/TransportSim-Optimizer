@@ -1,14 +1,34 @@
-# Transport Simulator Optimizer
+# Herzliya Transport Simulator Optimizer
 
-An AI-powered, multi-agent simulation engine designed to optimize public transportation routing in Herzliya, Israel. This project utilizes CrewAI, advanced Large Language Models, and a custom RAG (Retrieval-Augmented Generation) pipeline to generate highly realistic, context-aware urban mobility patterns and dynamically dispatch transit resources.
+### A Behavioral Digital Twin & Multi-Agent Optimization Engine
 
-## 🚀 Core Features
+## 🎯 Project Vision
 
-* **Multi-Agent Orchestration:** Utilizes autonomous agents (Passengers, Buses, Dispatchers) operating on a simulated clock to test urban transit efficiency under pressure.
-* **RAG-Augmented Passenger Demand:** Integrates ChromaDB with OpenAI to generate context-aware passenger flows based on real Herzliya behavioral patterns (e.g., tech hub commutes, university class schedules, and train station bottlenecks).
-* **Deterministic Traffic Scaling:** Features a mathematical extrapolator to safely scale AI-generated baseline trips into massive datasets with time-jittering for robust load testing.
-* **Geospatial Routing:** Connects to a PostgreSQL database to calculate accurate, real-world travel times between hundreds of local bus stops using geospatial node mapping.
-* **Interactive Dashboard:** Includes a live Streamlit and Folium UI to visualize network congestion, bus routing, and passenger metrics in real-time.
+The Herzliya Transport Optimizer is a sophisticated simulation environment designed to solve urban transit inefficiency. Unlike static models, this project creates a **Behavioral Digital Twin** of Herzliya, Israel. It simulates a full operational day (06:00–22:00), modeling the unique sociological pulse of the city — from morning surges at the Herzliya Train Station to late-night shifts in the Pituach high-tech district.
+
+## 🧠 Core Architecture
+
+### 1. Context-Aware Demand (RAG + LLM)
+
+The simulation uses a Retrieval-Augmented Generation (RAG) pipeline to ground passenger behavior in real-world local patterns.
+
+- **Knowledge Base:** A curated dataset of Herzliya's movement patterns (e.g., Reichman University schedules, tech-hub shifts, and school dismissals).
+- **Deterministic Scaling:** LLM-generated baseline personas are processed by a custom scaler that handles time-jittering and spatial distribution, allowing for massive, realistic load testing without artificial "clumping."
+
+### 2. High-Fidelity Agentic Simulation
+
+Every bus and passenger is a discrete agent with specific internal logic:
+
+- **Bus Logic:** Manages real-time navigation, stop-duration, and capacity constraints. The system logs "left-behind" events as a primary KPI for the optimizer.
+- **Geospatial Intelligence:** Powered by PostgreSQL/GeoAlchemy2 and OSRM, calculating precise travel times based on actual road topology rather than straight-line distance.
+
+### 3. The Multi-Agent Optimization Council
+
+Post-simulation, a CrewAI team performs an adversarial analysis of the logs:
+
+- 📢 **The Neighborhood Advocate:** Identifies underserved residential zones through a social equity lens.
+- 📊 **The Demand & Flow Analyst:** Scans O-D matrices for "latent demand" and missing network links.
+- 🗺️ **The Chief Route Architect:** Redraws topological stop sequences to maximize coverage.
 
 ## 📂 Repository Structure
 
@@ -50,10 +70,30 @@ TransportSim-Optimizer/
 
 ## 🛠️ Technology Stack
 
-- **AI & LLM:** OpenAI API, CrewAI, ChromaDB
-- **Data & Geospatial:** PostgreSQL, SQLAlchemy, GeoAlchemy2, GeoPandas, Shapely
-- **Frontend & Visualization:** Streamlit, Folium, Streamlit-Folium
-- **Core Logic:** Python, Pandas, NumPy, Pytest
+| Category | Tools |
+|---|---|
+| AI / LLM | OpenAI API, CrewAI, ChromaDB (Vector Store) |
+| Backend | Python 3.12, Pandas, NumPy |
+| Database | Neon (PostgreSQL), SQLAlchemy, GeoAlchemy2 |
+| Geospatial | GeoPandas, Shapely, OSRM API |
+| Frontend | Streamlit, Folium |
+| DevOps | Docker, Azure App Service (B1 Tier), GitHub Container Registry (GHCR) |
+
+## 🧪 Engineering Standards
+
+This project is following professional software engineering workflows:
+
+- **Test-Driven Development (TDD):** A robust `pytest` suite with a strict "One Assert Per Test" policy.
+- **Static Type Checking:** Full `mypy` integration ensures type-safety across complex agent interactions.
+- **Fast Linting:** Adheres to PEP 8 and modern Python best practices via `Ruff`.
+
+```python
+# Example of TDD isolation in tests/test_passenger_navigator.py
+def test_navigator_sorts_stops_by_distance(navigator):
+    # Testing that standing near North Station makes it the primary choice
+    closest = navigator.get_closest_stops(lat=0.8, lon=0.0, count=2)
+    assert closest == ["North Station", "Center Station"]
+```
 
 ## ⚙️ Installation & Setup
 
@@ -115,7 +155,7 @@ Boot up the Streamlit UI to watch the multi-agent system attempt to optimize the
 streamlit run src/ui/app.py
 ```
 
-## 🧪 Running Tests
+## ✅ Running Tests
 
 To ensure the integrity of the routing logic, database connections, and agent behaviors, run the test suite:
 
